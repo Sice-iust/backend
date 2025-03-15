@@ -1,0 +1,5 @@
+{
+    "django": {
+        "settingsFile": "config/settings.py"
+    }
+}
