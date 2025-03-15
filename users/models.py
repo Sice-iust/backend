@@ -9,6 +9,7 @@ from django.contrib.auth.models import (
 from phonenumber_field.modelfields import PhoneNumberField
 from datetime import timedelta,datetime
 import random
+from django.utils import timezone
 
 class CustomUserManager(BaseUserManager):
 
@@ -50,6 +51,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
+
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
+
     USERNAME_FIELD = "phonenumber"
     REQUIRED_FIELDS = ["username", "email"]
 
@@ -64,13 +69,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         return str(self.phonenumber)
 
     def generate_otp(self):
-        self.otp = str(random.randint(100000, 999999))
-        self.otp_created_at = datetime.now()
+        self.otp = str(random.randint(1000, 9999))
+        self.otp_created_at = timezone.now()
         self.save()
 
     def is_otp_valid(self):
-        if self.otp_created_at and datetime.now() - self.otp_created_at < timedelta(
-            minutes=5
+        if self.otp_created_at and timezone.now() - self.otp_created_at < timedelta(
+            minutes=2
         ):
             return True
         return False

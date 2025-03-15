@@ -20,8 +20,8 @@ class SendOTPView(APIView):
             phone = serializer.validated_data["phonenumber"]
             user = User.objects.get(phonenumber=phone)
             user.generate_otp()  
-            
-            send_otp_sms(phone, user.otp)
+            print(user.otp)
+            # send_otp_sms(phone, user.otp)
 
             return Response({"message": "OTP sent"}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
