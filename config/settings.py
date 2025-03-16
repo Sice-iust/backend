@@ -61,14 +61,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -120,4 +112,14 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API for Nanzi",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+}
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "practical_murdock",
+        "USER": "root",
+        "PASSWORD": "nanzidata",
+        "HOST": "etna.liara.cloud",
+        "PORT": "31047",
+    }
 }
