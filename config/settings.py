@@ -76,6 +76,12 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
 
 LANGUAGE_CODE = 'en-us'
 
@@ -113,13 +119,13 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": "practical_murdock",
-        "USER": "root",
-        "PASSWORD": "nanzidata",
-        "HOST": "etna.liara.cloud",
-        "PORT": "31047",
-    }
-}
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": "practical_murdock",
+#         "USER": "root",
+#         "PASSWORD": "0tNze4UXgqQ43o3zmwHn6gMO",
+#         "HOST": "etna.liara.cloud",
+#         "PORT": "31047",
+#     }
+# }
