@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .utils import send_otp_sms
 from rest_framework.permissions import IsAuthenticated
+from django.utils.timezone import now
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -18,25 +19,33 @@ class SendOTPView(APIView):
         serializer = SendOTPSerializer(data=request.data)
         if serializer.is_valid():
             phone = serializer.validated_data["phonenumber"]
-            user = User.objects.get(phonenumber=phone)
-            user.generate_otp()  
-            print(user.otp)
-            # send_otp_sms(phone, user.otp)
-
-            return Response({"message": "OTP sent"}, status=status.HTTP_200_OK)
+            user = User.objects.filter(phonenumber=phone).first()
+            otp_obj, created = Otp.objects.get_or_create(phonenumber=phone)
+            otp = otp_obj.generate_otp()
+            print(otp)
+            # send_otp_sms(phone, otp)
+            return Response(
+                {
+                    "otp":otp,
+                    "message": "OTP sent",
+                    "is_registered": bool(user),
+                },
+                status=status.HTTP_200_OK,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class VerifyOTPView(APIView):
-    serializer_class = VerifyOTPSerializer
+class LoginVerifyOTPView(APIView):
+    serializer_class = LoginVerifyOTPSerializer
     def post(self, request):
-        serializer = VerifyOTPSerializer(data=request.data)
+        serializer = LoginVerifyOTPSerializer(data=request.data)
         if serializer.is_valid():
             phone = serializer.validated_data["phonenumber"]
             user = User.objects.get(phonenumber=phone)
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
+            Otp.objects.filter(phonenumber=phone).delete()
             return Response(
                 {
                     "message": "Login successful",

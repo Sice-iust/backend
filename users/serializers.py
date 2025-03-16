@@ -10,12 +10,10 @@ class SendOTPSerializer(serializers.Serializer):
     phonenumber = serializers.CharField()
 
     def validate_phonenumber(self, value):
-        if not User.objects.filter(phonenumber=value).exists():
-            raise serializers.ValidationError("Phone number not registered.")
         return value
 
 
-class VerifyOTPSerializer(serializers.Serializer):
+class LoginVerifyOTPSerializer(serializers.Serializer):
     phonenumber = serializers.CharField()
     otp = serializers.CharField(max_length=6)
 
@@ -24,10 +22,11 @@ class VerifyOTPSerializer(serializers.Serializer):
         otp = data.get("otp")
 
         try:
-            user = User.objects.get(phonenumber=phonenumber)
-            if not user.is_otp_valid():
+            user=User.objects.get(phonenumber=phonenumber)
+            otp_saved = Otp.objects.get(phonenumber=phonenumber)
+            if not otp_saved.is_otp_valid():
                 raise serializers.ValidationError("OTP expired, request a new one.")
-            if user.otp != otp:
+            if otp_saved.otp != otp:
                 raise serializers.ValidationError("Invalid OTP.")
         except User.DoesNotExist:
             raise serializers.ValidationError("User not found.")

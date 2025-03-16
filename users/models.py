@@ -52,9 +52,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
-    otp = models.CharField(max_length=6, blank=True, null=True)
-    otp_created_at = models.DateTimeField(blank=True, null=True)
-
     USERNAME_FIELD = "phonenumber"
     REQUIRED_FIELDS = ["username", "email"]
 
@@ -68,10 +65,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return str(self.phonenumber)
 
+
+class Otp(models.Model):
+    phonenumber = PhoneNumberField(region="IR", unique=True)
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
+
     def generate_otp(self):
         self.otp = str(random.randint(1000, 9999))
         self.otp_created_at = timezone.now()
         self.save()
+        return self.otp
 
     def is_otp_valid(self):
         if self.otp_created_at and timezone.now() - self.otp_created_at < timedelta(
