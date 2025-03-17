@@ -42,6 +42,8 @@ class LoginVerifyOTPView(APIView):
         if serializer.is_valid():
             phone = serializer.validated_data["phonenumber"]
             user = User.objects.get(phonenumber=phone)
+            if not user:
+                return Response({"message":"you are not registered."})
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token

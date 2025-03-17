@@ -14,7 +14,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["nanziback.liara.run",'127.0.0.1']
 
 
 INSTALLED_APPS = [
@@ -76,7 +76,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
 
