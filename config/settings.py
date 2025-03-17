@@ -2,6 +2,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
+from urllib.parse import urlparse
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -76,10 +77,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
+tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": tmpPostgres.path.replace("/", ""),
+        "USER": tmpPostgres.username,
+        "PASSWORD": tmpPostgres.password,
+        "HOST": tmpPostgres.hostname,
+        "PORT": 5432,
     }
 }
 
@@ -119,13 +127,3 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.mysql",
-#         "NAME": "practical_murdock",
-#         "USER": "root",
-#         "PASSWORD": "0tNze4UXgqQ43o3zmwHn6gMO",
-#         "HOST": "etna.liara.cloud",
-#         "PORT": "31047",
-#     }
-# }
