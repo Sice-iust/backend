@@ -22,11 +22,11 @@ class SendOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).first()
             otp_obj, created = Otp.objects.get_or_create(phonenumber=phone)
             otp = otp_obj.generate_otp()
-            print(otp)
-            # send_otp_sms(phone, otp)
+            # print(otp)
+            send_otp_sms(phone, otp)
             return Response(
                 {
-                    "otp":otp,
+                    # "otp":otp,
                     "message": "OTP sent",
                     "is_registered": bool(user),
                 },

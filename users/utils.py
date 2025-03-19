@@ -1,6 +1,6 @@
 import requests
 import json
-
+from django.conf import settings
 import phonenumbers
 
 
@@ -11,20 +11,23 @@ def format_phone_number(phone):
 
 
 def send_otp_sms(phone_number, otp):
-    url = "https://gateway.ghasedak.me/rest/api/v1/WebService/SendOtpWithParams"
-    formatted_phone = format_phone_number(phone_number)
+    url = "https://gateway.ghasedak.me/rest/api/v1/WebService/SendOtpSMS"
+
     payload = json.dumps({
-    "date": 0,
     "receptors": [
         {
-        "mobile": str(formatted_phone) ,
-        "clientReferenceId":"1"
+        "mobile": str(format_phone_number(phone_number)),
+        "clientReferenceId": "1"
         }
     ],
     "templateName": "Ghasedak",
-    "param1": otp,
-    "isVoice": False,
-    "udh": False
+    "inputs": [
+        {
+        "param": "Code",
+        "value": str(otp)
+        }
+    ],
+    "udh": True
     })
     headers = {
         "Content-Type": "application/json",
