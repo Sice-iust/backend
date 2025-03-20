@@ -65,6 +65,30 @@ class LoginVerifyOTPView(APIView):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class SignUpVerifyOTPView(APIView):
+    serializer_class = SignUPVerifyOTPSerializer
+    def post(self,request):
+        serializer = SignUPVerifyOTPSerializer(data=request.data)
+        if serializer.is_valid():
+            phone = serializer.validated_data["phonenumber"]
+            user = User.objects.get(phonenumber=phone)
+            if user:
+                return Response({"message":"this phone number is already registered."})
+            otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            if not otp_saved:
+                return Response({"message":"OTP is used or expired."})
+            if not otp_saved.is_otp_valid():
+                return Response({"message":"OTP expired, request a new one."})
+            if otp_saved.otp != serializer.validated_data["otp"]:
+                return Response("Invalid OTP.")
+            Otp.objects.filter(phonenumber=phone).delete()
+            return Response(
+                {
+                    "message": "SignUp successful",
+                },
+                status=status.HTTP_200_OK,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]

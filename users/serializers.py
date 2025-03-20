@@ -16,3 +16,7 @@ class SendOTPSerializer(serializers.Serializer):
 class LoginVerifyOTPSerializer(serializers.Serializer):
     phonenumber = serializers.CharField()
     otp = serializers.CharField(max_length=6)
+
+class SignUPVerifyOTPSerializer(serializers.Serializer):
+    phonenumber = serializers.CharField()
+    otp = serializers.CharField(max_length=6)
