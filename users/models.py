@@ -41,7 +41,7 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=100, unique=True, default="yourname")
-    email = models.EmailField(max_length=100, unique=True)
+    email = models.EmailField(max_length=100, unique=True, blank=True, null=True)
     firstname = models.CharField(max_length=50, blank=True, null=True)
     lastname = models.CharField(max_length=50, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
