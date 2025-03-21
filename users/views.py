@@ -12,6 +12,9 @@ from rest_framework import status
 from .utils import send_otp_sms
 from rest_framework.permissions import IsAuthenticated
 from django.utils.timezone import now
+from datetime import timedelta, datetime
+import random
+from django.utils import timezone
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -20,13 +23,25 @@ class SendOTPView(APIView):
         if serializer.is_valid():
             phone = serializer.validated_data["phonenumber"]
             user = User.objects.filter(phonenumber=phone).first()
-            otp_obj, created = Otp.objects.get_or_create(phonenumber=phone)
-            otp = otp_obj.generate_otp()
-            # print(otp)
+
+            ten_minutes_ago = now() - timedelta(minutes=10)
+            recent_otps = Otp.objects.filter(
+                phonenumber=phone, otp_created_at__gte=ten_minutes_ago
+            )
+            otp_count = recent_otps.count()
+            if otp_count >= 3:
+                return Response(
+                    {"message": "You can only request 3 OTPs every 10 minutes."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
+            otp = Otp.objects.create(phonenumber=phone)
+            otp = otp.generate_otp()
+
             send_otp_sms(phone, otp)
             return Response(
                 {
-                    # "otp":otp,
+                
                     "message": "OTP sent",
                     "is_registered": bool(user),
                 },

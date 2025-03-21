@@ -67,19 +67,21 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class Otp(models.Model):
-    phonenumber = PhoneNumberField(region="IR", unique=True)
+    phonenumber = PhoneNumberField(region="IR")  
     otp = models.CharField(max_length=6, blank=True, null=True)
-    otp_created_at = models.DateTimeField(blank=True, null=True)
-
+    otp_created_at = models.DateTimeField(
+        default=timezone.now
+    )  
     def generate_otp(self):
         self.otp = str(random.randint(1000, 9999))
-        self.otp_created_at = timezone.now()
+        self.otp_created_at = timezone.now() 
         self.save()
         return self.otp
 
     def is_otp_valid(self):
-        if self.otp_created_at and timezone.now() - self.otp_created_at < timedelta(
+        return self.otp_created_at and timezone.now() - self.otp_created_at < timedelta(
             minutes=2
-        ):
-            return True
-        return False
+        )
+
+    def __str__(self):
+        return f"{self.phonenumber} - {self.otp} ({self.otp_created_at})"
