@@ -19,4 +19,5 @@ class LoginVerifyOTPSerializer(serializers.Serializer):
 
 class SignUPVerifyOTPSerializer(serializers.Serializer):
     phonenumber = serializers.CharField()
+    username = serializers.CharField()
     otp = serializers.CharField(max_length=6)

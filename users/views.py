@@ -71,7 +71,7 @@ class SignUpVerifyOTPView(APIView):
         serializer = SignUPVerifyOTPSerializer(data=request.data)
         if serializer.is_valid():
             phone = serializer.validated_data["phonenumber"]
-            user = User.objects.get(phonenumber=phone)
+            user = User.objects.filter(phonenumber=phone).last()
             if user:
                 return Response({"message":"this phone number is already registered."})
             otp_saved = Otp.objects.filter(phonenumber=phone).last()
@@ -81,7 +81,11 @@ class SignUpVerifyOTPView(APIView):
                 return Response({"message":"OTP expired, request a new one."})
             if otp_saved.otp != serializer.validated_data["otp"]:
                 return Response("Invalid OTP.")
+            User.objects.create(
+                phonenumber=phone, username=serializer.validated_data["username"]
+            )
             Otp.objects.filter(phonenumber=phone).delete()
+
             return Response(
                 {
                     "message": "SignUp successful",
