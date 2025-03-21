@@ -85,10 +85,14 @@ class SignUpVerifyOTPView(APIView):
                 phonenumber=phone, username=serializer.validated_data["username"]
             )
             Otp.objects.filter(phonenumber=phone).delete()
-
+            login(request, user)
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
             return Response(
                 {
                     "message": "SignUp successful",
+                    "access_token": str(access_token),
+                    "refresh_token": str(refresh),
                 },
                 status=status.HTTP_200_OK,
             )
