@@ -53,7 +53,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "phonenumber"
-    REQUIRED_FIELDS = ["username", "email"]
+    REQUIRED_FIELDS = ["username"]
 
     objects = CustomUserManager()
 
