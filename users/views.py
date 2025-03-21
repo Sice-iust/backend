@@ -41,7 +41,7 @@ class LoginVerifyOTPView(APIView):
         serializer = LoginVerifyOTPSerializer(data=request.data)
         if serializer.is_valid():
             phone = serializer.validated_data["phonenumber"]
-            user = User.objects.get(phonenumber=phone)
+            user = User.objects.filter(phonenumber=phone).last()
             if not user:
                 return Response({"message":"you are not registered."})
             otp_saved = Otp.objects.filter(phonenumber=phone).last()
