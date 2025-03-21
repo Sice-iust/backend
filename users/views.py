@@ -85,6 +85,7 @@ class SignUpVerifyOTPView(APIView):
                 phonenumber=phone, username=serializer.validated_data["username"]
             )
             Otp.objects.filter(phonenumber=phone).delete()
+            user = User.objects.filter(phonenumber=phone).first()
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
