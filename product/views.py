@@ -1,0 +1,182 @@
+from django.shortcuts import render
+from .models import *
+from .serializers import *
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
+from django.http import Http404
+from django.contrib.auth.models import Group
+
+class ProductView(APIView):
+    serializer_class = ProductSerializer
+
+    def get(self, request):
+        objects = Product.objects.all()
+        serializer = self.serializer_class(
+            objects, many=True, context={"request": request}
+        )
+        return Response({"context": serializer.data})
+
+    def post(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        if not admin_group in request.user.groups.all():
+            return Response({"message": "Permission denied"}, status=403)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Product saved successfully"})
+        return Response(
+            {"message": "Something went wrong", "errors": serializer.errors}, status=400
+        )
+
+class SingleProductView(APIView):
+    serializer_class = ProductSerializer
+    def get(self,request,id):
+        try:
+            product = Product.objects.get(id=id)
+            obj = ProductSerializer(product, context={"request": request})
+            return Response(obj.data)
+        except Product.DoesNotExist:
+            return Response({"message": "Product not found"}, status=404)
+    def put(self, request,id):
+        admin_group = Group.objects.get(name="Admin")
+        if not admin_group in request.user.groups.all():
+            return Response({"message": "Permission denied"}, status=403)
+
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+
+        serializer = self.serializer_class(
+            product, data=request.data, partial=True, context={"request": request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            if request.data.get('photo'):
+                product.photo = request.data.get("photo")
+                product.save()
+            return Response({"message": "Product updated successfully"})
+        return Response(
+            {"message": "Something went wrong", "errors": serializer.errors}, status=400
+        )
+
+    def delete(self, request,id):
+        admin_group = Group.objects.get(name="Admin")
+        if not admin_group in request.user.groups.all():
+            return Response({"message": "Permission denied"}, status=403)
+        try:
+            product = Product.objects.get(id=id)
+            product.delete()
+            return Response({"message": "Product deleted successfully"})
+        except Product.DoesNotExist:
+            return Response({"message": "Product not found"}, status=404)
+
+
+class RateView(APIView):
+    serializer_class = RateSerializer
+
+    def get(self, request):
+        objects = Rate.objects.all()
+        serializer = self.serializer_class(objects, many=True)
+        return Response({"context": serializer.data})
+
+
+class SingleRateView(APIView):
+    serializer_class = RateSerializer
+    
+    def post(self, request,id):
+        if not request.user.is_authenticated:
+            return Response("You are not logged in.", status=401)
+
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+        rate_value = request.data.get("rate")
+        if not rate_value:
+            return Response("You must provide a rating.", status=400)
+        rated = Rate.objects.filter(product=product, rated_by=request.user).first()
+        if rated:
+            return Response("You have already rated this product.", status=400)
+        else:
+            new_rate = Rate.objects.create(
+                product=product, rated_by=request.user, rate=rate_value
+            )
+            all_ratings = Rate.objects.filter(product=product)
+            total_ratings = sum([r.rate for r in all_ratings])
+            average_rate = total_ratings / len(all_ratings)
+            product.average_rate = average_rate
+            product.save()
+            return Response("You have rated the product.", status=201)
+        
+    def put(self, request, id):
+        if not request.user.is_authenticated:
+            return Response("You are not logged in.", status=401)
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+        rate_value = request.data.get("rate")
+        if not rate_value:
+            return Response("You must provide a rating.", status=400)
+        rated = Rate.objects.filter(product=product, rated_by=request.user).first()
+        if not rated:
+            return Response("You have not rated this product before.", status=400)
+        rated.rate = rate_value
+        rated.save()
+        all_ratings = Rate.objects.filter(product=product)
+        total_ratings = sum([r.rate for r in all_ratings])
+        average_rate = total_ratings / len(all_ratings)
+        product.average_rate = average_rate
+        product.save()
+        return Response("You have updated your rating for the product.", status=200)
+    
+    def delete(self, request, id):
+        if not request.user.is_authenticated:
+            return Response("You are not logged in.", status=401)
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+        rated = Rate.objects.filter(product=product, rated_by=request.user).first()
+        if not rated:
+            return Response("You have not rated this product before.", status=400)
+        rated.delete()
+        all_ratings = Rate.objects.filter(product=product)
+        if all_ratings.exists():
+            total_ratings = sum([r.rate for r in all_ratings])
+            average_rate = total_ratings / len(all_ratings)
+        else:
+            average_rate = 0  
+        product.average_rate = average_rate
+        product.save()
+        return Response("Your rating has been deleted.", status=200)
+
+
+class PopularProductView(APIView):
+    serializer_class = ProductSerializer
+
+    def get(self, request):
+        best_product = Product.objects.all().order_by(
+            "-average_rate"
+        ) 
+        serializer = self.serializer_class(
+            best_product, many=True, context={"request": request}
+        ).data
+
+        return Response(serializer)
+
+class DiscountView(APIView):
+    serializer_class = ProductSerializer
+
+    def get(self, request):
+        best_product = Product.objects.all().order_by("-discount")
+        serializer = self.serializer_class(
+            best_product, many=True, context={"request": request}
+        ).data
+
+        return Response(serializer)
