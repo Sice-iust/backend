@@ -46,9 +46,10 @@ class SingleCartView(APIView):
         if serializer.is_valid():
             quantity = serializer.validated_data.get("quantity")
 
-            if quantity is None:
+            if quantity is None or quantity <= 0:
                 return Response({"error": "Enter quantity"}, status=400)
-
+            if quantity > product.stock:
+                return Response({"error": "Not enough stock available"}, status=400)
             if CartItem.objects.filter(user=user, product=product).exists():
                 return Response(
                     {"error": "You already have this product in your cart"}, status=400
@@ -76,8 +77,10 @@ class SingleCartView(APIView):
         if serializer.is_valid():
             quantity = serializer.validated_data.get("quantity")
 
-            if quantity is None:
+            if quantity is None or quantity <= 0:
                 return Response({"error": "Enter quantity"}, status=400)
+            if quantity > product.stock:
+                return Response({"error": "Not enough stock available"}, status=400)
 
             cart.quantity = quantity
             cart.save()

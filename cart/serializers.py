@@ -24,18 +24,23 @@ class CartSerializer(serializers.ModelSerializer):
     total_actual_price = serializers.SerializerMethodField(
         method_name="get_total_actual_price"
     )
-
+    stock=serializers.SerializerMethodField(method_name='get_stock')
     class Meta:
         model = CartItem
         fields = [
             "product",
             "quantity",
+            'stock',
             "price",
             "total_discount",
             "total_price",
             "total_actual_price",
         ]
 
+    def get_stock(self,obj):
+        
+        return obj.product.stock
+    
     def get_price(self, obj):
    
         return obj.product.price * obj.quantity
