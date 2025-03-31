@@ -38,6 +38,12 @@ class RateSerializer(serializers.ModelSerializer):
         fields = ["product", "rate"]
 
 
+class ProductCartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "name","price"]
+
+
 # class DiscountSerializer(serializers.ModelSerializer):
 #     Product=ProductRateSerializer()
 
