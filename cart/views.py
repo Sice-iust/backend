@@ -100,3 +100,18 @@ class SingleCartView(APIView):
 
         cart_item.delete()
         return Response({"success": "Cart item deleted"}, status=200)
+
+
+class HeaderView(APIView):
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({"is_login": False})
+        
+        user = request.user
+        cart_count = CartItem.objects.filter(user=user).count()
+        
+        return Response({
+            "is_login": True,
+            "username": user.username,
+            "nums": cart_count
+        })

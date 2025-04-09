@@ -5,4 +5,5 @@ from .views import *
 urlpatterns = [
     path('mycart/',CartView.as_view()),
     path('change/<int:id>/',SingleCartView.as_view()),
+    path('header/',HeaderView.as_view()),
 ]
