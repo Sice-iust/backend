@@ -7,11 +7,11 @@ from rest_framework import serializers
 
 class ProductSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField("get_image")
-    dicounted_price = serializers.SerializerMethodField('get_new_price')  \
+    dicounted_price = serializers.SerializerMethodField('get_new_price')
 
     class Meta:
         model = Product
-        fields = ["id", "category", "name", "price", "description",'stock'
+        fields = ["id", "category", "name", "price", "description",'stock',
         "photo", "average_rate", 'discount', 'dicounted_price']
 
     def get_image(self, obj):
