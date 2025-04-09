@@ -31,8 +31,7 @@ class SendOTPView(APIView):
             otp_count = recent_otps.count()
             if otp_count >= 3:
                 return Response(
-                    {"message": "You can only request 3 OTPs every 10 minutes."},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    {"message": "You can only request 3 OTPs every 10 minutes."}
                 )
 
             otp = Otp.objects.create(phonenumber=phone)
