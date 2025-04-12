@@ -26,6 +26,11 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+class SubCategory(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="subcategories"
+    )
+    subcategory = models.CharField(max_length=100)
 
 class Rate(models.Model):
     product = models.ForeignKey(
