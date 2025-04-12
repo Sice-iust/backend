@@ -5,14 +5,19 @@ User = get_user_model()
 
 from rest_framework import serializers
 
+class SubcategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subcategory
+        fields = ['subcategory']
+
 class ProductSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField("get_image")
-    dicounted_price = serializers.SerializerMethodField('get_new_price')
-
+    discounted_price = serializers.SerializerMethodField('get_new_price')
+    subcategories = SubcategorySerializer(many=True,required=False)
     class Meta:
         model = Product
         fields = ["id", "category", "name", "price", "description",'stock',
-        "photo", "average_rate", 'discount', 'dicounted_price']
+        "photo", "average_rate", 'discount', 'discounted_price','subcategories']
 
     def get_image(self, obj):
         if obj.photo and hasattr(obj.photo, "url"):
@@ -23,7 +28,17 @@ class ProductSerializer(serializers.ModelSerializer):
         if obj.discount is not None and obj.discount > 0 and obj.price is not None:
             return obj.price - (obj.price * obj.discount / 100)
         return obj.price 
-
+    
+    def create(self, validated_data):
+        subcategories_data = validated_data.pop('subcategories')
+        product = Product.objects.create(**validated_data)
+        existing_subcategories = set()
+        for subcategory in subcategories_data:
+            subcategory_value = subcategory['subcategory']
+            if subcategory_value not in existing_subcategories:
+                Subcategory.objects.create(product=product, subcategory=subcategory_value)
+                existing_subcategories.add(subcategory_value)
+        return product
 class ProductRateSerializer(serializers.ModelSerializer):
     class Meta:
         model=Product
