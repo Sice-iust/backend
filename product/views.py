@@ -163,7 +163,7 @@ class PopularProductView(APIView):
     def get(self, request):
         best_product = Product.objects.all().order_by(
             "-average_rate"
-        ) 
+        )[:10]
         serializer = self.serializer_class(
             best_product, many=True, context={"request": request}
         ).data
@@ -175,6 +175,19 @@ class DiscountView(APIView):
 
     def get(self, request):
         best_product = Product.objects.all().order_by("-discount")
+        serializer = self.serializer_class(
+            best_product, many=True, context={"request": request}
+        ).data
+
+        return Response(serializer)
+
+class AllProductView(APIView):
+    serializer_class = ProductSerializer
+
+    def get(self, request):
+        best_product = Product.objects.all().order_by(
+            "-name"
+        )
         serializer = self.serializer_class(
             best_product, many=True, context={"request": request}
         ).data
