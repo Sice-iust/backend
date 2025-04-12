@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 class SubcategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = SubCategory
+        model = Subcategory
         fields = ['subcategory']
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -36,7 +36,7 @@ class ProductSerializer(serializers.ModelSerializer):
         for subcategory in subcategories_data:
             subcategory_value = subcategory['subcategory']
             if subcategory_value not in existing_subcategories:
-                SubCategory.objects.create(product=product, subcategory=subcategory_value)
+                Subcategory.objects.create(product=product, subcategory=subcategory_value)
                 existing_subcategories.add(subcategory_value)
         return product
 class ProductRateSerializer(serializers.ModelSerializer):
