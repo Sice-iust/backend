@@ -74,3 +74,10 @@ class SingleDiscountCartView(APIView):
         discount = get_object_or_404(DiscountCart, id=id)
         discount.delete()
         return Response({"message": "Discount deleted successfully"}, status=200)
+
+
+# class SubmitOrderView(APIView):
+#     permission_classes = [IsAuthenticated]
+    
+#     def get(self,request):
+        

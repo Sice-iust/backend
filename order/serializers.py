@@ -60,13 +60,14 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class DiscountCartSerializer(serializers.ModelSerializer):
     phonenumber = serializers.CharField(write_only=True)
     product_name = serializers.CharField(write_only=True)
-
+    product = ProductDiscountSerializer(read_only=True)
     class Meta:
         model = DiscountCart
         fields = [
             "id",  
             "phonenumber",
             "product_name",
+            "product",
             "text",
             "percentage",
             "max_discount",
@@ -79,7 +80,6 @@ class DiscountCartSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         phone = validated_data.pop("phonenumber")
         product_name = validated_data.pop("product_name")
-
 
         try:
             user = User.objects.get(phonenumber=phone)
@@ -99,7 +99,6 @@ class DiscountCartSerializer(serializers.ModelSerializer):
             secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10)
         )
 
-
         validated_data["user"] = user
         validated_data["product"] = product
         validated_data["text"] = random_text
@@ -118,3 +117,5 @@ class DiscountCartSerializer(serializers.ModelSerializer):
             )
 
         return representation
+
+

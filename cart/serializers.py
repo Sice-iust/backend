@@ -63,3 +63,8 @@ class CartSerializer(serializers.ModelSerializer):
 
 class CRUDCartSerializer(serializers.Serializer):
     quantity=serializers.IntegerField()
+
+
+class CartDiscountSerializer(serializers.Serializer):
+    final_price = serializers.FloatField()
+    discount = serializers.FloatField()
