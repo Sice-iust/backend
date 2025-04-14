@@ -23,9 +23,15 @@ class UserDiscountSerializer(serializers.ModelSerializer):
         fields = ["phonenumber"]
 
 
-class OrderSerializer(serializers.ModelSerializer):
-    user=UserSerializer()
+class DiscountOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiscountCart
+        fields = ["text"]
+
+
+class MyOrderSerializer(serializers.ModelSerializer):
     delivery_day = serializers.SerializerMethodField()
+    user=UserSerializer()
     delivery_clock = serializers.SerializerMethodField()
     class Meta:
         model=Order
@@ -48,14 +54,26 @@ class OrderSerializer(serializers.ModelSerializer):
         return obj.get_jalali_delivery_time()
 
 
-class OrderItemSerializer(serializers.ModelSerializer):
-    order=OrderSerializer(many=True)
-    product=ProductCartSerializer(many=True)
+class MyOrderItemSerializer(serializers.ModelSerializer):
+    order=MyOrderSerializer()
+    product=ProductCartSerializer()
 
     class Meta:
         model = OrderItem
         fields = ["order", "product", "quantity", "product_discount"]
 
+
+class FinalizeOrderSerializer(serializers.Serializer):
+    distination=serializers.CharField()
+    deliver_time=serializers.DateTimeField()
+    discription = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+    shipping_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    discount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 class DiscountCartSerializer(serializers.ModelSerializer):
     phonenumber = serializers.CharField(write_only=True)
@@ -117,5 +135,3 @@ class DiscountCartSerializer(serializers.ModelSerializer):
             )
 
         return representation
-
-
