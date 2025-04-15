@@ -23,7 +23,7 @@ class DiscountCart(models.Model):
     first_time = models.BooleanField(default=True)
     expired_time = models.DateTimeField(default=default_expired_time)
     product=models.ForeignKey(Product,on_delete=models.CASCADE,null=True,blank=True)
-
+    payment_without_discount = models.DecimalField(max_digits=10, decimal_places=2,default=0)
     class Meta:
         constraints = [
             models.CheckConstraint(

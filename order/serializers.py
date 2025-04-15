@@ -82,7 +82,7 @@ class DiscountCartSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiscountCart
         fields = [
-            "id",  
+            "id",
             "phonenumber",
             "product_name",
             "product",
@@ -92,6 +92,7 @@ class DiscountCartSerializer(serializers.ModelSerializer):
             "max_use",
             "first_time",
             "expired_time",
+            "payment_without_discount",
         ]
         read_only_fields = ["text"] 
 
