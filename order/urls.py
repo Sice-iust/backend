@@ -3,9 +3,10 @@ from django.urls import path
 from .views import *
 
 urlpatterns = [
-    path("discount/", MyDiscountView.as_view()),
-    path("discount/<int:id>/", SingleDiscountCartView.as_view()),
-    path("order/submit/", SubmitOrderView.as_view()),
-    path("order/myorder/", OrderView.as_view()),
-    path("order/orders/", AllOrderView.as_view()),
+    path("user/discounts/", MyDiscountView.as_view()),
+    path('admin/discount',AdminDiscountView.as_view()),
+    path("admin/discount/<int:id>/", SingleDiscountCartView.as_view()),
+    path("user/order/submit/", SubmitOrderView.as_view()),
+    path("user/order/myorder/", OrderView.as_view()),
+    path("admin/order/orders/", AllOrderView.as_view()),
 ]

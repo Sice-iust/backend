@@ -18,6 +18,10 @@ class ProductView(APIView):
         )
         return Response({"context": serializer.data})
 
+
+class AdminProductView(APIView):
+    serializer_class = ProductSerializer
+
     def post(self, request):
         admin_group = Group.objects.get(name="Admin")
         if not admin_group in request.user.groups.all():
@@ -32,6 +36,7 @@ class ProductView(APIView):
             {"message": "Something went wrong", "errors": serializer.errors}, status=400
         )
 
+
 class SingleProductView(APIView):
     serializer_class = ProductSerializer
     def get(self,request,id):
@@ -41,7 +46,11 @@ class SingleProductView(APIView):
             return Response(obj.data)
         except Product.DoesNotExist:
             return Response({"message": "Product not found"}, status=404)
-    def put(self, request,id):
+
+
+class AdminSingleProductView(APIView):
+    serializer_class = ProductSerializer
+    def put(self, request, id):
         admin_group = Group.objects.get(name="Admin")
         if not admin_group in request.user.groups.all():
             return Response({"message": "Permission denied"}, status=403)
@@ -56,7 +65,7 @@ class SingleProductView(APIView):
         )
         if serializer.is_valid():
             serializer.save()
-            if request.data.get('photo'):
+            if request.data.get("photo"):
                 product.photo = request.data.get("photo")
                 product.save()
             return Response({"message": "Product updated successfully"})

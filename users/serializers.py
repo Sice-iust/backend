@@ -37,11 +37,14 @@ class ProfileSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.profile_photo.url)
         return request.build_absolute_uri("/media/profiles/Default_pfp.jpg")
 
+from drf_spectacular.utils import (
+    extend_schema_field,
+    OpenApiTypes,
+    OpenApiParameter
+) 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
-    @extend_schema_field(serializers.ImageField)
-    def profile_photo(self):
-        pass  
+
     profile_photo = serializers.ImageField(required=False)
 
     class Meta:

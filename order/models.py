@@ -11,7 +11,7 @@ User = get_user_model()
 
 
 def default_expired_time():
-    return timezone.now() + timedelta(days=5)
+    return timezone.now() + timedelta(days=15)
 
 
 class DiscountCart(models.Model):
