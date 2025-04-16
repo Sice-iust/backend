@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from .models import *
 from .serializers import *
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from django.contrib.auth import login,authenticate
@@ -15,6 +15,7 @@ from django.utils.timezone import now
 from datetime import timedelta, datetime
 import random
 from django.utils import timezone
+from rest_framework.parsers import MultiPartParser, FormParser
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -115,7 +116,40 @@ class SignUpVerifyOTPView(APIView):
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
-
+    serializer_class=ProfileSerializer
     def get(self, request):
         user = request.user
-        return Response({"username": user.username})
+        seria = self.serializer_class(user, context={"request": request})
+        return Response(seria.data)
+
+class UpdateProfileView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated]
+    serializer_class = UpdateProfileSerializer
+
+    def put(self, request):
+        user = request.user
+        serializer = self.serializer_class(
+            user, data=request.data, partial=True, context={"request": request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+
+class LogOutView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class=LogOutSerializer
+    
+    def post(self, request):
+        refresh_token = self.serializer_class(data=request.data)
+        if not refresh_token:
+            return Response({"error": "Refresh token required."}, status=400)
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"message": "Logged out successfully."}, status=200)
+        except TokenError:
+            return Response({"error": "Invalid or expired token."}, status=400)

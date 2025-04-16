@@ -16,14 +16,14 @@ def default_expired_time():
 
 class DiscountCart(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    text = models.CharField(max_length=255)
+    text = models.CharField(max_length=255,unique=True)
     percentage = models.PositiveIntegerField(default=0)
     max_discount = models.DecimalField(max_digits=10, decimal_places=2)
     max_use = models.PositiveIntegerField(default=10)
     first_time = models.BooleanField(default=True)
     expired_time = models.DateTimeField(default=default_expired_time)
     product=models.ForeignKey(Product,on_delete=models.CASCADE,null=True,blank=True)
-
+    payment_without_discount = models.DecimalField(max_digits=10, decimal_places=2,default=0)
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -43,12 +43,11 @@ class Order(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     discription = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    status = models.BooleanField(default=0, db_index=True)
+    status = models.SmallIntegerField(default=0, db_index=True)
     discount = models.ForeignKey(
         DiscountCart, on_delete=models.PROTECT, blank=True, null=True
     )
     shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0) 
-
     def __str__(self):
         return f"Order #{self.id} by {self.user.phonenumber}"
 

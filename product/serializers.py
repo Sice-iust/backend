@@ -2,6 +2,7 @@ from .models import *
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 User = get_user_model()
+from drf_spectacular.utils import extend_schema_field
 
 from rest_framework import serializers
 
@@ -54,9 +55,15 @@ class RateSerializer(serializers.ModelSerializer):
 
 
 class ProductCartSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField("get_image")
     class Meta:
         model = Product
-        fields = ["id", "name","price"]
+        fields = ["id", "name", "price", "photo"]
+
+    def get_image(self, obj):
+        if obj.photo and hasattr(obj.photo, "url"):
+            return self.context["request"].build_absolute_uri(obj.photo.url)
+        return None
 
 
 class ProductDiscountSerializer(serializers.ModelSerializer):

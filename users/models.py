@@ -46,6 +46,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     lastname = models.CharField(max_length=50, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
     phonenumber = PhoneNumberField(region="IR", unique=True)
+    profile_photo = models.ImageField(
+        upload_to="profiles",
+        default="profiles/Default_pfp.jpg",
+        null=False,
+        blank=False,
+    )
+
     password = models.CharField(max_length=100, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

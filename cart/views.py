@@ -29,6 +29,17 @@ class CartView(APIView):
             for item in cart_items
         )
         total_actual_price = total_price - total_discount
+        if total_actual_price<0:
+            total_actual_price=0
+        shipping_fee=0
+        jalali_day = jdatetime.datetime.now().strftime("%A")
+
+        if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
+            shipping_fee = 50000  
+        elif total_price == 0:
+            shipping_fee = 0
+        else:
+            shipping_fee = 30000
 
         return Response(
             {
@@ -36,6 +47,7 @@ class CartView(APIView):
                 "total_price": total_price,
                 "total_discount": total_discount,
                 "total_actual_price": total_actual_price,
+                "total_with_shipping": total_actual_price+shipping_fee,
             }
         )
 
@@ -168,6 +180,10 @@ class DiscountCartView(APIView):
                 return Response(
                     {"error": "This discount is not for your products."}, status=400
                 )
+            if discount_cart.product.discount>10:
+                return Response(
+                    {"error": "This Product Has Discount."}, status=400
+                )
 
         discount_cart.max_use -= 1
         discount_cart.save()
@@ -184,22 +200,52 @@ class DiscountCartView(APIView):
             total_discount += item_discount
 
         total_actual_price = total_price - total_discount
+        if total_actual_price<discount_cart.payment_without_discount:
+            return Response({"error":"This Discount is not for your payment."})
 
         if total_actual_price > discount_cart.max_discount and discount_cart.max_discount>0:
             final_price = total_actual_price - discount_cart.max_discount
+            if total_actual_price < 0:
+                total_actual_price = 0
+            shipping_fee = 0
+            jalali_day = jdatetime.datetime.now().strftime("%A")
+
+            if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
+                shipping_fee = 50000
+            elif total_price == 0:
+                shipping_fee = 0
+            else:
+                shipping_fee = 30000
+
             serializer = self.serializer_class(
-                {"final_price": final_price,
-                "discount": discount_cart.max_discount+total_discount}
+                {
+                    "final_price": final_price,
+                    "discount": discount_cart.max_discount + total_discount,
+                    "final_with_shipping": final_price + shipping_fee,
+                }
             )
             return Response(serializer.data)
 
         percentage_discount = (total_actual_price * discount_cart.percentage) / 100
         final_price = total_actual_price - percentage_discount
+        total_actual_price = total_price - total_discount
+        if total_actual_price<0:
+            total_actual_price=0
+        shipping_fee = 0
+        jalali_day = jdatetime.datetime.now().strftime("%A")
+
+        if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
+            shipping_fee = 50000
+        elif total_price == 0:
+            shipping_fee = 0
+        else:
+            shipping_fee = 30000
 
         serializer = self.serializer_class(
             {
                 "final_price": final_price,
                 "discount": percentage_discount + total_discount,
+                "final_with_shipping":final_price+shipping_fee
             }
         )
         return Response(serializer.data)
