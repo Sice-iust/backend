@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "users",
     "phonenumber_field",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "corsheaders",
     "product",
