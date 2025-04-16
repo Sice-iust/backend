@@ -6,5 +6,5 @@ urlpatterns = [
     path("mycart/", CartView.as_view()),
     path("change/<int:id>/", SingleCartView.as_view()),
     path("header/", HeaderView.as_view()),
-    path("discount/", DiscountCartView.as_view()),
+    path("discount/", DiscountedCartView.as_view()),
 ]

@@ -14,7 +14,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 
 
-class DiscountCartView(APIView):
+class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
 

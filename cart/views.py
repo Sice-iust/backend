@@ -135,7 +135,7 @@ class HeaderView(APIView):
         })
 
 
-class DiscountCartView(APIView):
+class DiscountedCartView(APIView):
     serializer_class = CartDiscountSerializer
     permission_classes = [IsAuthenticated]
 
@@ -156,7 +156,7 @@ class DiscountCartView(APIView):
         if not discount_cart:
             return Response({"error": "This discount cart does not exist."}, status=404)
 
-        if discount_cart.expired_time < timezone.now():
+        if discount_cart.expired_time and discount_cart.expired_time < timezone.now():
             return Response({"error": "Your discount cart is expired."}, status=400)
 
         if discount_cart.max_use <= 0:

@@ -16,7 +16,7 @@ from datetime import timedelta, datetime
 import random
 from django.utils import timezone
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from order.models import DiscountCart
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
     def post(self, request):
@@ -104,6 +104,7 @@ class SignUpVerifyOTPView(APIView):
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
+            DiscountCart.objects.create(user=user,text='Welcome',percentage=25,max_discount=80,max_use=1,first_time=False)
             return Response(
                 {
                     "message": "SignUp successful",
