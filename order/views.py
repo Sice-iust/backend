@@ -43,16 +43,20 @@ class MyDiscountView(APIView):
 
 class AdminDiscountView(APIView):
     serializer_class = DiscountCartSerializer
+
     permission_classes = [IsAuthenticated]
-    
-    def get(self,request):
+
+    def get(self, request):
+
         admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
+        if admin_group not in request.user.groups.all():
             return Response({"message": "Permission denied"}, status=403)
-        discounts=DiscountCart.objects.all()
-        serializer = self.serializer_class(data=discounts)
-        return Response({"discouns":discounts})
-    
+        discounts = DiscountCart.objects.all()
+
+        serializer = self.serializer_class(discounts, many=True)
+
+        return Response({"discounts": serializer.data})
+
     def post(self,request):
         admin_group = Group.objects.get(name="Admin")
         if not admin_group in request.user.groups.all():

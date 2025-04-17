@@ -66,6 +66,16 @@ class ProductCartSerializer(serializers.ModelSerializer):
         return None
 
 
+class SummerizedProductCartSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price", "discount",'stock']
+
+    def validate_price(self, value):
+        return value if value is not None else 0
+
+
 class ProductDiscountSerializer(serializers.ModelSerializer):
 
     class Meta:

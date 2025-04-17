@@ -22,33 +22,41 @@ class CartView(APIView):
     def get(self, request):
         user = request.user
         cart_items = CartItem.objects.filter(user=user)
-        serializer = CartSerializer(cart_items, many=True, context={"request": request})
-        total_price = sum(item.product.price * item.quantity for item in cart_items)
-        total_discount = sum(
-            (item.product.price * item.product.discount / 100) * item.quantity
-            for item in cart_items
+        serializer = SummerizedCartSerializer(
+            cart_items, many=True, context={"request": request}
         )
+        total_price = 0
+        total_discount = 0
+
+        for item in cart_items:
+            price = item.product.price or 0
+            discount = item.product.discount or 0
+            quantity = item.quantity
+
+            total_price += price * quantity
+            total_discount += (price * discount / 100) * quantity
+
         total_actual_price = total_price - total_discount
         if total_actual_price<0:
             total_actual_price=0
-        shipping_fee=0
-        jalali_day = jdatetime.datetime.now().strftime("%A")
+        # shipping_fee=0
+        # jalali_day = jdatetime.datetime.now().strftime("%A")
 
-        if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
-            shipping_fee = 50000  
-        elif total_price == 0:
-            shipping_fee = 0
-        else:
-            shipping_fee = 30000
+        # if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
+        #     shipping_fee = 50000  
+        # elif total_price == 0:
+        #     shipping_fee = 0
+        # else:
+        #     shipping_fee = 30000
 
         counts= CartItem.objects.filter(user=user).count()
         return Response(
             {
                 "cart_items": serializer.data,
-                "total_price": total_price,
+                # "total_price": total_price,
                 "total_discount": total_discount,
                 "total_actual_price": total_actual_price,
-                "total_with_shipping": total_actual_price+shipping_fee,
+                # "total_with_shipping": total_actual_price+shipping_fee,
                 "counts":counts,
             }
         )

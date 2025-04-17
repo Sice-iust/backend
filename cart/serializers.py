@@ -10,10 +10,35 @@ User = get_user_model()
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from product.models import Product
-from product.serializers import ProductCartSerializer
+from product.serializers import ProductCartSerializer,SummerizedProductCartSerializer
 from .models import CartItem
 
+
 User = get_user_model()
+
+class SummerizedCartSerializer(serializers.ModelSerializer):
+    product = SummerizedProductCartSerializer()
+    price = serializers.SerializerMethodField(method_name="get_price")
+    discounted_price = serializers.SerializerMethodField(method_name="get_discountedprice")
+
+    class Meta:
+        model = CartItem
+        fields = [
+            "product",
+            "quantity",
+            "price",
+            "discounted_price"
+        ]
+    def get_price(self, obj):
+
+        price = (obj.product.price * obj.quantity)
+        return price
+
+    def get_discountedprice(self, obj):
+
+        price_before_discount = obj.product.price * obj.quantity
+        discount = (obj.product.price * obj.product.discount / 100) * obj.quantity
+        return price_before_discount - discount
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -60,7 +85,6 @@ class CartSerializer(serializers.ModelSerializer):
     def get_total_discount(self, obj):
 
         return (obj.product.price * obj.product.discount / 100) * obj.quantity
-
 
 
 class CRUDCartSerializer(serializers.Serializer):
