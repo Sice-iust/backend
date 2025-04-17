@@ -37,7 +37,7 @@ class CartSerializer(serializers.ModelSerializer):
             "price",
             "total_discount",
             "total_price",
-            "total_actual_price",
+            "total_actual_price","counts"
         ]
 
     def get_stock(self,obj):
