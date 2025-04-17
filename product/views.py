@@ -7,7 +7,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from django.http import Http404
 from django.contrib.auth.models import Group
-
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 class ProductView(APIView):
     serializer_class = ProductSerializer
 
@@ -202,3 +204,47 @@ class AllProductView(APIView):
         ).data
 
         return Response(serializer)
+
+
+class CategoryView(APIView):
+    serializer_class = ProductSerializer
+
+    category_map = {
+        1: "نان بربری",
+        2: "نان سنگک",
+        3: "نان تافتون",
+        4: "نان محلی",
+        5: "نان فانتزی",
+        6: "نان لواش",
+    }
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="category",
+                description="Enter Category number",
+                required=True,
+                type=int,
+            ),
+        ]
+    )
+    def get(self, request):
+        category_param = request.query_params.get("category")
+
+        if not category_param:
+            return Response({"error": "Enter a Category"}, status=400)
+
+        try:
+            category = int(category_param)
+        except ValueError:
+            return Response({"error": "Category must be an integer"}, status=400)
+
+        category_name = self.category_map.get(category)
+        if not category_name:
+            return Response({"error": "Invalid category number"}, status=400)
+
+        items = Product.objects.filter(category=category_name)
+        serializer = self.serializer_class(
+            items, many=True, context={"request": request}
+        )
+        return Response(serializer.data)

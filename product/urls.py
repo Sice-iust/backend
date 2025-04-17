@@ -12,4 +12,5 @@ urlpatterns = [
     path("product/popular/", PopularProductView.as_view()),
     path("product/discount/", DiscountView.as_view()),
     path("product/all/", DiscountView.as_view()),
+    path("product/category/", CategoryView.as_view()),
 ]
