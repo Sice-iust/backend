@@ -24,6 +24,9 @@ class CartSerializer(serializers.ModelSerializer):
     total_actual_price = serializers.SerializerMethodField(
         method_name="get_total_actual_price"
     )
+    counts = total_actual_price = serializers.SerializerMethodField(
+        method_name="get_counts"
+    )
     stock=serializers.SerializerMethodField(method_name='get_stock')
     class Meta:
         model = CartItem
@@ -38,27 +41,33 @@ class CartSerializer(serializers.ModelSerializer):
         ]
 
     def get_stock(self,obj):
-        
+
         return obj.product.stock
-    
+
     def get_price(self, obj):
-   
+
         return obj.product.price * obj.quantity
 
     def get_total_price(self, obj):
-        
+
         price = obj.product.price * obj.quantity
         return price
 
     def get_total_actual_price(self, obj):
-      
+
         price_before_discount = obj.product.price * obj.quantity
         discount = (obj.product.price * obj.product.discount / 100) * obj.quantity
         return price_before_discount - discount
 
     def get_total_discount(self, obj):
-      
+
         return (obj.product.price * obj.product.discount / 100) * obj.quantity
+
+    def get_counts(self, obj):
+        user = self.context.get("user")
+        if user is not None:
+            return CartItem.objects.filter(user=user).count()
+        return 0
 
 
 class CRUDCartSerializer(serializers.Serializer):
