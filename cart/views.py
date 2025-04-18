@@ -33,8 +33,8 @@ class CartView(APIView):
             discount = item.product.discount or 0
             quantity = item.quantity
 
-            total_price += price * quantity
-            total_discount += (price * discount / 100) * quantity
+            total_price += price * quantity * item.box_type
+            total_discount += (price * discount / 100) * quantity * item.box_type
 
         total_actual_price = total_price - total_discount
         if total_actual_price<0:
@@ -43,7 +43,7 @@ class CartView(APIView):
         # jalali_day = jdatetime.datetime.now().strftime("%A")
 
         # if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
-        #     shipping_fee = 50000  
+        #     shipping_fee = 50000
         # elif total_price == 0:
         #     shipping_fee = 0
         # else:
@@ -66,35 +66,48 @@ class SingleCartView(APIView):
     serializer_class = CRUDCartSerializer
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, id):
+    def post(self, request, id, box_type):
         user = request.user
         product = get_object_or_404(Product, id=id)
-
+        if box_type not in [2, 4, 6, 8]:
+            return Response({"error": "Invalid box type"}, status=400)
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             quantity = serializer.validated_data.get("quantity")
 
             if quantity is None or quantity <= 0:
                 return Response({"error": "Enter quantity"}, status=400)
-            if quantity > product.stock:
-                return Response({"error": "Not enough stock available"}, status=400)
-            if CartItem.objects.filter(user=user, product=product).exists():
+            if box_type==2:
+                if quantity > product.stock_2:
+                    return Response({"error": "Not enough stock available"}, status=400)
+            if box_type == 4:
+                if quantity > product.stock_4:
+                    return Response({"error": "Not enough stock available"}, status=400)
+            if box_type == 6:
+                if quantity > product.stock_6:
+                    return Response({"error": "Not enough stock available"}, status=400)
+            if box_type == 8:
+                if quantity > product.stock_8:
+                    return Response({"error": "Not enough stock available"}, status=400)
+            if CartItem.objects.filter(user=user, product=product,box_type=box_type).exists():
                 return Response(
                     {"error": "You already have this product in your cart"}, status=400
                 )
 
             new_cart = CartItem.objects.create(
-                user=user, product=product, quantity=quantity
+                user=user, product=product, quantity=quantity,box_type=box_type
             )
             new_cart.save()
             return Response({"success": "Cart saved"}, status=201)
 
         return Response(serializer.errors, status=400)
 
-    def put(self, request, id):
+    def put(self, request, id, box_type):
         user = request.user
         product = get_object_or_404(Product, id=id)
-        cart = CartItem.objects.filter(user=user, product=product).first()
+        cart = CartItem.objects.filter(
+            user=user, product=product, box_type=box_type
+        ).first()
 
         if not cart:
             return Response(
@@ -107,20 +120,31 @@ class SingleCartView(APIView):
 
             if quantity is None or quantity <= 0:
                 return Response({"error": "Enter quantity"}, status=400)
-            if quantity > product.stock:
-                return Response({"error": "Not enough stock available"}, status=400)
-
+            if quantity is None or quantity <= 0:
+                return Response({"error": "Enter quantity"}, status=400)
+            if box_type == 2:
+                if quantity > product.stock_2:
+                    return Response({"error": "Not enough stock available"}, status=400)
+            if box_type == 1:
+                if quantity > product.stock_1:
+                    return Response({"error": "Not enough stock available"}, status=400)
+            if box_type == 3:
+                if quantity > product.stock_2:
+                    return Response({"error": "Not enough stock available"}, status=400)
+            if box_type == 4:
+                if quantity > product.stock_2:
+                    return Response({"error": "Not enough stock available"}, status=400)
             cart.quantity = quantity
             cart.save()
             return Response({"success": "Cart updated"}, status=200)
 
         return Response(serializer.errors, status=400)
 
-    def delete(self, request, id):
+    def delete(self, request, id,box_type):
         user = request.user
         product = get_object_or_404(Product, id=id)
 
-        cart_item = CartItem.objects.filter(user=user, product=product)
+        cart_item = CartItem.objects.filter(user=user, product=product,box_type=box_type)
         if not cart_item.exists():
             return Response(
                 {"error": "You don't have this product in your cart"}, status=404
@@ -202,10 +226,10 @@ class DiscountedCartView(APIView):
         total_discount = 0
 
         for item in cart_items:
-            item_price = item.product.price * item.quantity
+            item_price = item.product.price * item.quantity * item.box_type
             item_discount = (
                 item.product.price * item.product.discount / 100
-            ) * item.quantity
+            ) * item.quantity *item.box_type
             total_price += item_price
             total_discount += item_discount
 

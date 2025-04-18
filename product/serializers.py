@@ -17,8 +17,22 @@ class ProductSerializer(serializers.ModelSerializer):
     subcategories = SubcategorySerializer(many=True,required=False)
     class Meta:
         model = Product
-        fields = ["id", "category", "name", "price", "description",'stock',
-        "photo", "average_rate", 'discount', 'discounted_price','subcategories']
+        fields = [
+            "id",
+            "category",
+            "name",
+            "price",
+            "description",
+            "stock_2",
+            "stock_4",
+            "stock_6",
+            "stock_8",
+            "photo",
+            "average_rate",
+            "discount",
+            "discounted_price",
+            "subcategories",
+        ]
 
     def get_image(self, obj):
         if obj.photo and hasattr(obj.photo, "url"):
@@ -29,7 +43,7 @@ class ProductSerializer(serializers.ModelSerializer):
         if obj.discount is not None and obj.discount > 0 and obj.price is not None:
             return obj.price - (obj.price * obj.discount / 100)
         return obj.price 
-    
+
     def create(self, validated_data):
         subcategories_data = validated_data.pop('subcategories')
         product = Product.objects.create(**validated_data)
@@ -70,7 +84,7 @@ class SummerizedProductCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ["id", "name", "price", "discount",'stock']
+        fields = ["id", "name", "price", "discount",'stock_2',"stock_4","stock_6","stock_8"]
 
     def validate_price(self, value):
         return value if value is not None else 0

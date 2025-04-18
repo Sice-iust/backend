@@ -13,8 +13,10 @@ class Product(models.Model):
     photo = models.ImageField(upload_to="product") 
     average_rate = models.FloatField(default=0)
     discount = models.PositiveIntegerField(default=0)
-    stock = models.PositiveIntegerField(default=0)
-
+    stock_2 = models.PositiveIntegerField(default=0)
+    stock_4 = models.PositiveIntegerField(default=0)
+    stock_6 = models.PositiveIntegerField(default=0)
+    stock_8 = models.PositiveIntegerField(default=0)
     class Meta:
         constraints = [
             models.CheckConstraint(

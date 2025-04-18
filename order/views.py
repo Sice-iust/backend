@@ -105,6 +105,17 @@ class SubmitOrderView(APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             discount = DiscountCart.objects.filter(text=data.get("discount")).first()
+
+            cart_items = CartItem.objects.filter(user=user).all()
+
+            for item in cart_items:
+                if not self._has_enough_stock(item):
+                    return Response(
+                        {
+                            "error": f"Not enough stock for product '{item.product.name}' (box type {item.box_type})"
+                        },
+                        status=400,
+                    )
             order = Order.objects.create(
                 user=user,
                 distination=data["distination"],
@@ -116,7 +127,6 @@ class SubmitOrderView(APIView):
                 shipping_fee=data["shipping_fee"],
             )
 
-            cart_items = CartItem.objects.filter(user=user).all()
             for item in cart_items:
                 p_dis = item.product.discount
                 OrderItem.objects.create(
@@ -124,12 +134,42 @@ class SubmitOrderView(APIView):
                     order=order,
                     quantity=item.quantity,
                     product_discount=p_dis,
+                    box_type=item.box_type,
                 )
+
+                self._reduce_stock(item)
                 item.delete()
 
             return Response({"message": "Order submitted successfully!"})
 
         return Response(serializer.errors, status=400)
+
+    def _has_enough_stock(self, item):
+        product = item.product
+        quantity = item.quantity
+        box_type = item.box_type
+
+        if box_type == 2:
+            return quantity <= product.stock_1
+        if box_type == 4:
+            return quantity <= product.stock_4
+        if box_type == 6:
+            return quantity <= product.stock_6
+        if box_type == 8:
+            return quantity <= product.stock_8
+        return False
+
+    def _reduce_stock(self, item):
+        product = item.product
+        quantity = item.quantity
+        box_type = item.box_type
+
+        if box_type == 1:
+            product.stock_1 -= quantity
+        elif box_type in [2, 3, 4]:
+            product.stock_2 -= quantity
+
+        product.save()
 
 
 class OrderView(APIView):
