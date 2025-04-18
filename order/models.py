@@ -43,6 +43,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     discription = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    profit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.SmallIntegerField(default=0, db_index=True)
     discount = models.ForeignKey(
         DiscountCart, on_delete=models.PROTECT, blank=True, null=True

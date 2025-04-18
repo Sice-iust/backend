@@ -44,7 +44,8 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "delivery_clock",
             "total_price",
             "status",
-            'shipping_fee',
+            "shipping_fee",
+            "profit",
         ]
 
     def get_delivery_day(self, obj):
@@ -72,8 +73,9 @@ class FinalizeOrderSerializer(serializers.Serializer):
     )
     shipping_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
-    discount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    profit = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
+    discount_text = serializers.CharField()
 
 class DiscountCartSerializer(serializers.ModelSerializer):
     phonenumber = serializers.CharField(write_only=True)

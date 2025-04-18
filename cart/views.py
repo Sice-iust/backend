@@ -66,38 +66,50 @@ class SingleCartView(APIView):
     serializer_class = CRUDCartSerializer
     permission_classes = [IsAuthenticated]
 
+    def validate_quantity(self, quantity, box_type, product):
+        if quantity is None or quantity <= 0:
+            return "Enter quantity"
+
+        stock_dict = {
+            2: product.stock_2,
+            4: product.stock_4,
+            6: product.stock_6,
+            8: product.stock_8,
+        }
+
+        if box_type not in stock_dict:
+            return "Invalid box type"
+
+        if quantity > stock_dict[box_type]:
+            return "Not enough stock available"
+
+        return None
+
     def post(self, request, id, box_type):
         user = request.user
         product = get_object_or_404(Product, id=id)
+
         if box_type not in [2, 4, 6, 8]:
             return Response({"error": "Invalid box type"}, status=400)
+
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             quantity = serializer.validated_data.get("quantity")
 
-            if quantity is None or quantity <= 0:
-                return Response({"error": "Enter quantity"}, status=400)
-            if box_type==2:
-                if quantity > product.stock_2:
-                    return Response({"error": "Not enough stock available"}, status=400)
-            if box_type == 4:
-                if quantity > product.stock_4:
-                    return Response({"error": "Not enough stock available"}, status=400)
-            if box_type == 6:
-                if quantity > product.stock_6:
-                    return Response({"error": "Not enough stock available"}, status=400)
-            if box_type == 8:
-                if quantity > product.stock_8:
-                    return Response({"error": "Not enough stock available"}, status=400)
-            if CartItem.objects.filter(user=user, product=product,box_type=box_type).exists():
+            error_message = self.validate_quantity(quantity, box_type, product)
+            if error_message:
+                return Response({"error": error_message}, status=400)
+
+            if CartItem.objects.filter(
+                user=user, product=product, box_type=box_type
+            ).exists():
                 return Response(
                     {"error": "You already have this product in your cart"}, status=400
                 )
 
             new_cart = CartItem.objects.create(
-                user=user, product=product, quantity=quantity,box_type=box_type
+                user=user, product=product, quantity=quantity, box_type=box_type
             )
-            new_cart.save()
             return Response({"success": "Cart saved"}, status=201)
 
         return Response(serializer.errors, status=400)
@@ -118,33 +130,23 @@ class SingleCartView(APIView):
         if serializer.is_valid():
             quantity = serializer.validated_data.get("quantity")
 
-            if quantity is None or quantity <= 0:
-                return Response({"error": "Enter quantity"}, status=400)
-            if quantity is None or quantity <= 0:
-                return Response({"error": "Enter quantity"}, status=400)
-            if box_type == 2:
-                if quantity > product.stock_2:
-                    return Response({"error": "Not enough stock available"}, status=400)
-            if box_type == 1:
-                if quantity > product.stock_1:
-                    return Response({"error": "Not enough stock available"}, status=400)
-            if box_type == 3:
-                if quantity > product.stock_2:
-                    return Response({"error": "Not enough stock available"}, status=400)
-            if box_type == 4:
-                if quantity > product.stock_2:
-                    return Response({"error": "Not enough stock available"}, status=400)
+            error_message = self.validate_quantity(quantity, box_type, product)
+            if error_message:
+                return Response({"error": error_message}, status=400)
+
             cart.quantity = quantity
             cart.save()
             return Response({"success": "Cart updated"}, status=200)
 
         return Response(serializer.errors, status=400)
 
-    def delete(self, request, id,box_type):
+    def delete(self, request, id, box_type):
         user = request.user
         product = get_object_or_404(Product, id=id)
 
-        cart_item = CartItem.objects.filter(user=user, product=product,box_type=box_type)
+        cart_item = CartItem.objects.filter(
+            user=user, product=product, box_type=box_type
+        )
         if not cart_item.exists():
             return Response(
                 {"error": "You don't have this product in your cart"}, status=404
