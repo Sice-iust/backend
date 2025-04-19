@@ -39,24 +39,14 @@ class CartView(APIView):
         total_actual_price = total_price - total_discount
         if total_actual_price<0:
             total_actual_price=0
-        # shipping_fee=0
-        # jalali_day = jdatetime.datetime.now().strftime("%A")
 
-        # if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
-        #     shipping_fee = 50000
-        # elif total_price == 0:
-        #     shipping_fee = 0
-        # else:
-        #     shipping_fee = 30000
 
         counts= CartItem.objects.filter(user=user).count()
         return Response(
             {
                 "cart_items": serializer.data,
-                # "total_price": total_price,
                 "total_discount": total_discount,
                 "total_actual_price": total_actual_price,
-                # "total_with_shipping": total_actual_price+shipping_fee,
                 "counts":counts,
             }
         )
@@ -286,3 +276,20 @@ class DiscountedCartView(APIView):
             }
         )
         return Response(serializer.data)
+
+
+
+class QuentityView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id):
+        user = request.user
+        cart_items = CartItem.objects.filter(user=user, product_id=id)
+
+        box_quantity = {}
+
+        for item in cart_items:
+            box_label = f"Box_of_{item.box_type}"
+            box_quantity[box_label] = box_quantity.get(box_label, 0) + item.quantity
+
+        return Response({"product_id": id, "box_quantities": box_quantity})

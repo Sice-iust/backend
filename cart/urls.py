@@ -7,4 +7,5 @@ urlpatterns = [
     path("user/cart/modify/<int:id>/<int:box_type>/", SingleCartView.as_view()),
     path("header/", HeaderView.as_view()),
     path("user/discountcart/", DiscountedCartView.as_view()),
+    path("user/cart/quantity/<int:id>/", QuentityView.as_view()),
 ]
