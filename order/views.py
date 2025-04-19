@@ -153,6 +153,7 @@ class SubmitOrderView(APIView):
         quantity = item.quantity
 
         stock_dict = {
+            1:product.stock_1,
             2: product.stock_2,
             4: product.stock_4,
             6: product.stock_6,
@@ -170,6 +171,7 @@ class SubmitOrderView(APIView):
         quantity = item.quantity
 
         stock_dict = {
+            1:"stock_1",
             2: "stock_2",
             4: "stock_4",
             6: "stock_6",

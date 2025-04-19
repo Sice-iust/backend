@@ -13,6 +13,7 @@ class Product(models.Model):
     photo = models.ImageField(upload_to="product") 
     average_rate = models.FloatField(default=0)
     discount = models.PositiveIntegerField(default=0)
+    stock_1 = models.PositiveIntegerField(default=0)
     stock_2 = models.PositiveIntegerField(default=0)
     stock_4 = models.PositiveIntegerField(default=0)
     stock_6 = models.PositiveIntegerField(default=0)

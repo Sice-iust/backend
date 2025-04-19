@@ -23,6 +23,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "name",
             "price",
             "description",
+            "stock_1",
             "stock_2",
             "stock_4",
             "stock_6",
@@ -84,7 +85,17 @@ class SummerizedProductCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ["id", "name", "price", "discount",'stock_2',"stock_4","stock_6","stock_8"]
+        fields = [
+            "id",
+            "name",
+            "price",
+            "discount",
+            "stock_1",
+            "stock_2",
+            "stock_4",
+            "stock_6",
+            "stock_8",
+        ]
 
     def validate_price(self, value):
         return value if value is not None else 0

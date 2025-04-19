@@ -8,6 +8,7 @@ User = get_user_model()
 
 class CartItem(models.Model):
     BOX_CHOICES = [
+        (1, "Box of 1"),
         (2, "Box of 2"),
         (4, "Box of 4"),
         (6, "Box of 6"),

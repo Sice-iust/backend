@@ -71,6 +71,7 @@ class SingleCartView(APIView):
             return "Enter quantity"
 
         stock_dict = {
+            1: product.stock_1,
             2: product.stock_2,
             4: product.stock_4,
             6: product.stock_6,
@@ -89,7 +90,7 @@ class SingleCartView(APIView):
         user = request.user
         product = get_object_or_404(Product, id=id)
 
-        if box_type not in [2, 4, 6, 8]:
+        if box_type not in [1,2, 4, 6, 8]:
             return Response({"error": "Invalid box type"}, status=400)
 
         serializer = self.serializer_class(data=request.data)
