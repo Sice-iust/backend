@@ -288,7 +288,7 @@ class QuentityView(APIView):
 
         # Initialize all box types with 0
         all_box_types = dict(CartItem.BOX_CHOICES)
-        box_quantity = {f"Box of {key}": 0 for key in all_box_types}
+        box_quantity = {f"Box_of_{key}": 0 for key in all_box_types}
 
         # Fill in the actual quantities
         for item in cart_items:
