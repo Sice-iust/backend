@@ -292,7 +292,7 @@ class QuentityView(APIView):
 
         # Fill in the actual quantities
         for item in cart_items:
-            label = f"Box of {item.box_type}"
+            label = f"Box_of_{item.box_type}"
             box_quantity[label] += item.quantity
 
         return Response({"product_id": id, "box_quantities": box_quantity})
