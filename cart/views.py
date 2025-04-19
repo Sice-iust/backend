@@ -278,18 +278,21 @@ class DiscountedCartView(APIView):
         return Response(serializer.data)
 
 
-
 class QuentityView(APIView):
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
         user = request.user
         cart_items = CartItem.objects.filter(user=user, product_id=id)
 
-        box_quantity = {}
+        # Initialize all box types with 0
+        all_box_types = dict(CartItem.BOX_CHOICES)
+        box_quantity = {f"Box of {key}": 0 for key in all_box_types}
 
+        # Fill in the actual quantities
         for item in cart_items:
-            box_label = f"Box_of_{item.box_type}"
-            box_quantity[box_label] = box_quantity.get(box_label, 0) + item.quantity
+            label = f"Box of {item.box_type}"
+            box_quantity[label] += item.quantity
 
         return Response({"product_id": id, "box_quantities": box_quantity})
