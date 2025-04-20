@@ -63,7 +63,8 @@ class SingleCartView(APIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             quantity = serializer.validated_data.get("quantity")
-
+            if quantity<=0:
+                return Response("you should enter positive.")
             if CartItem.objects.filter(
                 user=user, product=product
             ).exists():
@@ -104,12 +105,14 @@ class SingleModifyCartView(APIView):
             return Response(
                 {"error": "You don't have this product in your cart"}, status=404
             )
-
+        quen=cart.quantity
         if update_mode=='add':
             cart.quantity += 1
             cart.save()
             return Response({"success": "Cart updated"}, status=200)
         if update_mode=='delete':
+            if quen<=1:
+                return Response({"message":"you should delete it."})
             cart.quantity -= 1
             cart.save()
             return Response({"success": "Cart updated"}, status=200)

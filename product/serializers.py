@@ -102,7 +102,7 @@ class SummerizedProductCartSerializer(serializers.ModelSerializer):
             "discount",
             "stock",
             "box_type",
-            "box_color"
+            "box_color","color",
         ]
 
     def validate_price(self, value):
