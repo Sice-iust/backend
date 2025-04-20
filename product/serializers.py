@@ -31,6 +31,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "stock",
             "box_type",
             "box_color",
+            "color",
             "photo",  
             "photo_url", 
             "average_rate",

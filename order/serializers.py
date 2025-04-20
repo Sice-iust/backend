@@ -75,7 +75,7 @@ class FinalizeOrderSerializer(serializers.Serializer):
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     profit = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
-    discount_text = serializers.CharField()
+    discount_text = serializers.CharField(required=False)
 
 class DiscountCartSerializer(serializers.ModelSerializer):
     phonenumber = serializers.CharField(write_only=True)
