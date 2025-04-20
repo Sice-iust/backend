@@ -4,6 +4,13 @@ User = get_user_model()
 
 
 class Product(models.Model):
+    BOX_CHOICES = [
+        (1, "Box of 1"),
+        (2, "Box of 2"),
+        (4, "Box of 4"),
+        (6, "Box of 6"),
+        (8, "Box of 8"),
+    ]
     category = models.CharField(max_length=255)
     name = models.CharField(max_length=250, blank=False)
     price = models.DecimalField(
@@ -13,11 +20,10 @@ class Product(models.Model):
     photo = models.ImageField(upload_to="product") 
     average_rate = models.FloatField(default=0)
     discount = models.PositiveIntegerField(default=0)
-    stock_1 = models.PositiveIntegerField(default=0)
-    stock_2 = models.PositiveIntegerField(default=0)
-    stock_4 = models.PositiveIntegerField(default=0)
-    stock_6 = models.PositiveIntegerField(default=0)
-    stock_8 = models.PositiveIntegerField(default=0)
+    stock = models.PositiveIntegerField(default=0)
+    box_type = models.PositiveIntegerField(choices=BOX_CHOICES,default=1)
+    box_color=models.TextField(default='red')
+    color=models.CharField(max_length=255,blank=True,null=True)
     class Meta:
         constraints = [
             models.CheckConstraint(

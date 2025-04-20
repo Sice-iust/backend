@@ -23,7 +23,7 @@ class ReservationView(APIView):
         total_price_all = 0
         for item in reservs:
             base_price = item.product.price
-            total_items = item.box_type * item.quantity
+            total_items =  item.quantity
             discount = item.product.discount or 0
             discounted_price = base_price * (1 - discount / 100)
             total_price_all += discounted_price * total_items
@@ -67,7 +67,7 @@ class AdminReservationView(APIView):
         total_price_all = 0
         for item in reservs:
             base_price = item.product.price
-            total_items = item.box_type * item.quantity
+            total_items =  item.quantity
             discount = item.product.discount or 0
             discounted_price = base_price * (1 - discount / 100)
             total_price_all += discounted_price * total_items

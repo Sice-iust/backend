@@ -15,18 +15,10 @@ class BreadReservation(models.Model):
         ("monthly", "Monthly"),
     ]
 
-    BOX_CHOICES = [
-        (2, "Box of 2"),
-        (4, "Box of 4"),
-        (6, "Box of 6"),
-        (8, "Box of 8"),
-    ]
-
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="bread_reservations"
     )
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    box_type = models.PositiveIntegerField(choices=BOX_CHOICES)
     quantity = models.PositiveIntegerField(default=1)
     period = models.CharField(max_length=10, choices=PERIOD_CHOICES)
     start_date = models.DateTimeField(default=timezone.now)
@@ -34,7 +26,7 @@ class BreadReservation(models.Model):
     auto_pay = models.BooleanField(default=False)
     location=models.CharField(max_length=255,null=True,blank=True)
     class Meta:
-        unique_together = ("user", "product", "box_type", "period")
+        unique_together = ("user", "product", "period")
 
     def __str__(self):
         return f"{self.user.phonenumber} reserved {self.quantity} x Box of {self.box_type} ({self.period})"

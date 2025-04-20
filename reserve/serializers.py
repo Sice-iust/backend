@@ -20,7 +20,6 @@ class ReservationSerializer(serializers.ModelSerializer):
             "product",
             "location",
             "user",
-            "box_type",
             "quantity",
             "period",
             "start_date",
@@ -40,7 +39,7 @@ class ReservationSerializer(serializers.ModelSerializer):
     def get_total_price(self, obj):
         try:
             base_price = obj.product.price
-            total_items = obj.box_type * obj.quantity
+            total_items =  obj.quantity
             discount = obj.product.discount or 0
             discounted_price = base_price * (1 - discount / 100)
             return round(discounted_price * total_items, 2)
