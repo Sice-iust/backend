@@ -100,7 +100,9 @@ class SubmitOrderView(APIView):
 
     def post(self, request):
         user = request.user
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
 
         if serializer.is_valid():
             data = serializer.validated_data
@@ -117,17 +119,8 @@ class SubmitOrderView(APIView):
                         status=400,
                     )
 
-            order = Order.objects.create(
-                user=user,
-                distination=data["distination"],
-                delivery_time=data["deliver_time"],
-                discription=data.get("discription", ""),
-                status=1,
-                profit=data["profit"],
-                discount=discount,
-                total_price=data["total_price"],
-                shipping_fee=data["shipping_fee"],
-            )
+            # Call the fixed serializer save method
+            order = serializer.save()
 
             for item in cart_items:
                 p_dis = item.product.discount
@@ -136,23 +129,17 @@ class SubmitOrderView(APIView):
                     order=order,
                     quantity=item.quantity,
                     product_discount=p_dis,
-
                 )
-
-                item.product.stock-=item.quantity
-                item.delete()  
+                item.product.stock -= item.quantity
+                item.product.save()
+                item.delete()
 
             return Response({"message": "Order submitted successfully!"})
 
         return Response(serializer.errors, status=400)
 
     def _has_sufficient_stock(self, item):
-
-        product = item.product
-        box_type = item.product.stock
-        quantity = item.quantity
-
-        return box_type >= quantity
+        return item.product.stock >= item.quantity
 
 
 class OrderView(APIView):

@@ -4,7 +4,7 @@ from product.serializers import ProductDiscountSerializer
 from order.serializers import UserSerializer
 import secrets
 import string
-
+from users.serializers import LocationSerializer
 
 class ReservationSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(write_only=True)
@@ -13,7 +13,7 @@ class ReservationSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     total_price = serializers.SerializerMethodField()
     next_delivery_date = serializers.ReadOnlyField()
-
+    location=LocationSerializer()
     class Meta:
         model = BreadReservation
         fields = [

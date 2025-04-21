@@ -111,7 +111,7 @@ class OrderReservesView(APIView):
 
             order = Order.objects.create(
                 user=user,
-                distination=location,
+                location=location,
                 delivery_time=delivery_time,
                 total_price=round(total_price, 2),
             )

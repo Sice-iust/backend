@@ -9,7 +9,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .utils import send_otp_sms
+from .utils import send_otp_sms, reverse_geocode
 from rest_framework.permissions import IsAuthenticated
 from django.utils.timezone import now
 from datetime import timedelta, datetime
@@ -17,6 +17,11 @@ import random
 from django.utils import timezone
 from rest_framework.parsers import MultiPartParser, FormParser
 from order.models import DiscountCart
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework.parsers import MultiPartParser, FormParser
+
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
     def post(self, request):
@@ -142,7 +147,7 @@ class UpdateProfileView(APIView):
 class LogOutView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class=LogOutSerializer
-    
+
     def post(self, request):
         refresh_token = self.serializer_class(data=request.data)
         if not refresh_token:
@@ -154,3 +159,74 @@ class LogOutView(APIView):
             return Response({"message": "Logged out successfully."}, status=200)
         except TokenError:
             return Response({"error": "Invalid or expired token."}, status=400)
+
+
+class LocationView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LocationSerializer
+
+    def get(self, request):
+        user = request.user
+        locations = Location.objects.filter(user=user).all() 
+        if not locations.exists():
+            return Response(
+                {"error": "You have not submitted any locations yet."}, status=404
+            )
+
+        serializer = self.serializer_class(locations, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = request.user
+
+        name = request.data.get("name")
+        reciver = request.data.get("reciver")
+        phonenumber = request.data.get("phonenumber")
+        address=request.data.get('address')
+
+        location = Location.objects.create(
+            user=user,
+            name=name,
+            reciver=reciver,
+            phonenumber=phonenumber,
+            address=address,
+ 
+        )
+
+        return Response(LocationSerializer(location).data, status=201)
+
+class NeshanLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="lng", description="Longitude", required=True, type=float
+            ),
+            OpenApiParameter(
+                name="lat", description="Latitude", required=True, type=float
+            ),
+        ]
+    )
+    def get(self, request):
+        lng = request.query_params.get("lng")
+        lat = request.query_params.get("lat")
+
+        if not lng or not lat:
+            return Response({"error": "lng and lat are required"}, status=400)
+
+        try:
+            lng = float(lng)
+            lat = float(lat)
+        except ValueError:
+            return Response({"error": "lng and lat must be floats"}, status=400)
+
+        try:
+            data = reverse_geocode(lat, lng)
+        except Exception as e:
+            return Response({"error": f"Neshan API failed: {str(e)}"}, status=500)
+
+        if not data:
+            return Response({"error": "Neshan API returned no data"}, status=500)
+
+        return Response(data)

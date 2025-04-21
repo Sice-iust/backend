@@ -34,3 +34,14 @@ def send_otp_sms(phone_number, otp):
     response = requests.request("POST", url, headers=headers, data=payload)
 
     print(response.text)
+
+
+def reverse_geocode(lat, lng):
+    url = f"https://api.neshan.org/v5/reverse?lat={lat}&lng={lng}"
+    headers = {"Api-Key": settings.NESHAN_API}
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None

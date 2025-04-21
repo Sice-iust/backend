@@ -6,8 +6,10 @@ from product.models import *
 from cart.models import *
 from .models import *
 from product.serializers import *
+from users.models import Location
 import secrets
 import string
+
 
 User = get_user_model()
 
@@ -29,16 +31,69 @@ class DiscountOrderSerializer(serializers.ModelSerializer):
         fields = ["text"]
 
 
+class LocationSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    address = serializers.CharField()
+
+    class Meta:
+        model = Location
+        fields = ["user", "address", "name", "reciver", "phonenumber"]
+
+
+class FinalizeOrderSerializer(serializers.Serializer):
+    location = LocationSerializer()
+    deliver_time = serializers.DateTimeField()
+    discription = serializers.CharField(required=False, allow_blank=True)
+    shipping_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    profit = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
+    discount_text = serializers.CharField(required=False, allow_blank=True)
+
+
+    def create(self, validated_data):
+        location_data = validated_data.pop("location")
+        user = self.context["request"].user
+
+        location, created = Location.objects.get_or_create(
+            user=user,
+            address=location_data["address"],
+            name=location_data["name"],
+            reciver=location_data["reciver"],
+            phonenumber=location_data["phonenumber"],
+        )
+        discount_text = validated_data.get("discount_text", "")
+        discount = None
+        if discount_text:
+            discount = DiscountCart.objects.filter(text=discount_text).first()
+        order = Order.objects.create(
+            location=location,
+            user=user,
+            delivery_time=validated_data[
+                "deliver_time"
+            ],  
+            discription=validated_data.get("discription", ""),
+            total_price=validated_data["total_price"],
+            profit=validated_data["profit"],
+            status=1,  
+            shipping_fee=validated_data["shipping_fee"],
+            discount=discount, 
+        )
+
+        return order
+
+
 class MyOrderSerializer(serializers.ModelSerializer):
     delivery_day = serializers.SerializerMethodField()
-    user=UserSerializer()
+    # user=UserSerializer()
     delivery_clock = serializers.SerializerMethodField()
+    location = LocationSerializer()
     class Meta:
         model=Order
         fields = [
             "id",
-            "distination",
-            "user",
+            "location",
+            # "user",
             "delivery_time",
             "delivery_day",
             "delivery_clock",
@@ -63,19 +118,6 @@ class MyOrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ["order", "product", "quantity", "product_discount"]
 
-
-class FinalizeOrderSerializer(serializers.Serializer):
-    distination=serializers.CharField()
-    deliver_time=serializers.DateTimeField()
-    discription = serializers.CharField(
-        required=False,
-        allow_blank=True,
-    )
-    shipping_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
-    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
-    profit = serializers.DecimalField(max_digits=10, decimal_places=2)
-    total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
-    discount_text = serializers.CharField(required=False)
 
 class DiscountCartSerializer(serializers.ModelSerializer):
     phonenumber = serializers.CharField(write_only=True)

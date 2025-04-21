@@ -6,7 +6,7 @@ from cart.models import *
 import jdatetime
 from django.utils import timezone
 from datetime import timedelta
-
+from users.models import Location
 User = get_user_model()
 
 class BreadReservation(models.Model):
@@ -24,7 +24,8 @@ class BreadReservation(models.Model):
     start_date = models.DateTimeField(default=timezone.now)
     active = models.BooleanField(default=True)
     auto_pay = models.BooleanField(default=False)
-    location=models.CharField(max_length=255,null=True,blank=True)
+    location=models.ForeignKey(Location,on_delete=models.SET_NULL, null=True, blank=True)
+    
     class Meta:
         unique_together = ("user", "product", "period")
 

@@ -252,7 +252,7 @@ class CategoryView(APIView):
         return Response(serializer.data)
 
 
-class CategoryView(APIView):
+class CategoryBoxView(APIView):
     serializer_class = ProductSerializer
 
     category_map = {
