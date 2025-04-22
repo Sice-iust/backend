@@ -108,14 +108,9 @@ class CartDiscountSerializer(serializers.Serializer):
     discount = serializers.FloatField()
 
 
-# class BoxQuantitiesSerializer(serializers.Serializer):
-#     Box_of_1 = serializers.IntegerField()
-#     Box_of_2 = serializers.IntegerField()
-#     Box_of_4 = serializers.IntegerField()
-#     Box_of_6 = serializers.IntegerField()
-#     Box_of_8 = serializers.IntegerField()
 
-
-# class QuentitySerializer(serializers.Serializer):
-#     product_id = serializers.IntegerField()
-#     box_quantities = BoxQuantitiesSerializer()
+class QuentitySerializer(serializers.ModelSerializer):
+    product_id = serializers.IntegerField(source="product.id", read_only=True)
+    class Meta:
+        model=CartItem
+        fields=['product_id','quantity']

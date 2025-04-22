@@ -270,10 +270,9 @@ class DiscountedCartView(APIView):
 
 class QuentityView(APIView):
     permission_classes = [IsAuthenticated]
-
-    def get(self, request, id):
+    serializer_class = QuentitySerializer
+    def get(self, request):
         user = request.user
-        cart_items = CartItem.objects.filter(user=user, product_id=id).first()
-        if not cart_items:
-            return Response([{"cart_item": 0}])
-        return Response([{'cart_item':cart_items.quantity}])
+        cart_items = CartItem.objects.filter(user=user).all()
+        serializer=self.serializer_class(cart_items,many=True)
+        return Response(serializer.data)
