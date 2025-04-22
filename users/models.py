@@ -100,4 +100,4 @@ class Location(models.Model):
     address=models.TextField(null=False,blank=False)
     detail=models.TextField(null=True,blank=True)
     phonenumber = PhoneNumberField(region="IR",blank=True,null=True)
-    reciver=models.CharField(max_length=255,null=True,blank=True)
+    receiver=models.CharField(max_length=255,null=True,blank=True)

@@ -65,4 +65,4 @@ class LocationSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     class Meta:
         model=Location
-        fields = ["id","user", "address", "name", "reciver","phonenumber"]
+        fields = ["id","user", "address", "name", "receiver","phonenumber"]
