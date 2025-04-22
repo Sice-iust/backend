@@ -180,14 +180,14 @@ class LocationView(APIView):
         user = request.user
 
         name = request.data.get("name")
-        reciver = request.data.get("reciver")
+        receiver = request.data.get("receiver")
         phonenumber = request.data.get("phonenumber")
         address=request.data.get('address')
 
         location = Location.objects.create(
             user=user,
             name=name,
-            reciver=reciver,
+            receiver=receiver,
             phonenumber=phonenumber,
             address=address,
  
