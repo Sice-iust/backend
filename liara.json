@@ -1,5 +1,13 @@
 {
-    "django": {
-        "settingsFile": "config/settings.py"
-    }
+    "app": "nanziback",
+    "port": 80,
+    "build": {
+        "location": "iran"
+    },
+    "disks": [
+        {
+            "name": "nanzidisk",
+            "mountTo": ""
+        }
+    ]
 }

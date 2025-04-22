@@ -10,6 +10,8 @@ from django.contrib.auth.models import Group
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework.parsers import MultiPartParser, FormParser
+
 class ProductView(APIView):
     serializer_class = ProductSerializer
 
@@ -23,7 +25,7 @@ class ProductView(APIView):
 
 class AdminProductView(APIView):
     serializer_class = ProductSerializer
-
+    parser_classes = [MultiPartParser, FormParser]
     def post(self, request):
         admin_group = Group.objects.get(name="Admin")
         if not admin_group in request.user.groups.all():
@@ -273,5 +275,68 @@ class CategoryView(APIView):
         items = Product.objects.filter(category=category_name)
         serializer = self.serializer_class(
             items, many=True, context={"request": request}
+        )
+        return Response(serializer.data)
+
+
+class CategoryBoxView(APIView):
+    serializer_class = ProductSerializer
+
+    category_map = {
+        1: "نان بربری",
+        2: "نان سنگک",
+        3: "نان تافتون",
+        4: "نان محلی",
+        5: "نان فانتزی",
+        6: "نان لواش",
+    }
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="category",
+                description="Enter category number (1-6)",
+                required=True,
+                type=int,
+            ),
+            OpenApiParameter(
+                name="box_type",
+                description="Enter box type number (1, 2, 4, 6, or 8)",
+                required=True,
+                type=int,
+            ),
+        ]
+    )
+    def get(self, request):
+        category_param = request.query_params.get("category")
+        box_param = request.query_params.get("box_type")
+
+        if not category_param or not box_param:
+            return Response(
+                {"error": "Both 'category' and 'box_type' parameters are required."},
+                status=400,
+            )
+
+        try:
+            category = int(category_param)
+            box = int(box_param)
+        except ValueError:
+            return Response(
+                {"error": "Both 'category' and 'box_type' must be integers."},
+                status=400,
+            )
+
+        category_name = self.category_map.get(category)
+        if not category_name:
+            return Response({"error": "Invalid category number."}, status=400)
+
+        if box not in [1, 2, 4, 6, 8]:
+            return Response(
+                {"error": "Invalid box_type. Must be one of 1, 2, 4, 6, 8."}, status=400
+            )
+
+        products = Product.objects.filter(category=category_name, box_type=box)
+        serializer = self.serializer_class(
+            products, many=True, context={"request": request}
         )
         return Response(serializer.data)

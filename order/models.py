@@ -6,6 +6,7 @@ from cart.models import *
 import jdatetime  
 from django.utils import timezone
 from datetime import timedelta
+from users.models import Location
 
 User = get_user_model()
 
@@ -37,7 +38,9 @@ class DiscountCart(models.Model):
 
 
 class Order(models.Model):
-    distination = models.CharField(max_length=200)
+    location = models.ForeignKey(
+        Location, on_delete=models.SET_NULL, null=True, blank=True
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     delivery_time = models.DateTimeField()
     created_at = models.DateTimeField(default=timezone.now)
@@ -49,6 +52,7 @@ class Order(models.Model):
         DiscountCart, on_delete=models.PROTECT, blank=True, null=True
     )
     shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0) 
+    
     def __str__(self):
         return f"Order #{self.id} by {self.user.phonenumber}"
 
@@ -62,16 +66,9 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    BOX_CHOICES = [
-        (2, "Box of 2"),
-        (4, "Box of 4"),
-        (6, "Box of 6"),
-        (8, "Box of 8"),
-    ]
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
     product_discount = models.PositiveIntegerField(default=0)
-    box_type = models.PositiveIntegerField(choices=BOX_CHOICES)
     def __str__(self):
         return f"{self.quantity} x {self.product.name} (Order #{self.order.id})"

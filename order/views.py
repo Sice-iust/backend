@@ -100,7 +100,9 @@ class SubmitOrderView(APIView):
 
     def post(self, request):
         user = request.user
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
 
         if serializer.is_valid():
             data = serializer.validated_data
@@ -117,17 +119,8 @@ class SubmitOrderView(APIView):
                         status=400,
                     )
 
-            order = Order.objects.create(
-                user=user,
-                distination=data["distination"],
-                delivery_time=data["deliver_time"],
-                discription=data.get("discription", ""),
-                status=1,
-                profit=data["profit"],
-                discount=discount,
-                total_price=data["total_price"],
-                shipping_fee=data["shipping_fee"],
-            )
+            # Call the fixed serializer save method
+            order = serializer.save()
 
             for item in cart_items:
                 p_dis = item.product.discount
@@ -136,53 +129,17 @@ class SubmitOrderView(APIView):
                     order=order,
                     quantity=item.quantity,
                     product_discount=p_dis,
-                    box_type=item.box_type,
                 )
-
-                self._reduce_stock(item)
-                item.delete()  
+                item.product.stock -= item.quantity
+                item.product.save()
+                item.delete()
 
             return Response({"message": "Order submitted successfully!"})
 
         return Response(serializer.errors, status=400)
 
     def _has_sufficient_stock(self, item):
-
-        product = item.product
-        box_type = item.box_type
-        quantity = item.quantity
-
-        stock_dict = {
-            1:product.stock_1,
-            2: product.stock_2,
-            4: product.stock_4,
-            6: product.stock_6,
-            8: product.stock_8,
-        }
-
-        if box_type not in stock_dict:
-            return False
-
-        return stock_dict[box_type] >= quantity
-
-    def _reduce_stock(self, item):
-        product = item.product
-        box_type = item.box_type
-        quantity = item.quantity
-
-        stock_dict = {
-            1:"stock_1",
-            2: "stock_2",
-            4: "stock_4",
-            6: "stock_6",
-            8: "stock_8",
-        }
-
-        if box_type in stock_dict:
-            stock_field = stock_dict[box_type]
-            current_stock = getattr(product, stock_field)
-            setattr(product, stock_field, current_stock - quantity)
-            product.save()
+        return item.product.stock >= item.quantity
 
 
 class OrderView(APIView):

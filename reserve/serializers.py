@@ -4,7 +4,7 @@ from product.serializers import ProductDiscountSerializer
 from order.serializers import UserSerializer
 import secrets
 import string
-
+from users.serializers import LocationSerializer
 
 class ReservationSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(write_only=True)
@@ -13,14 +13,13 @@ class ReservationSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     total_price = serializers.SerializerMethodField()
     next_delivery_date = serializers.ReadOnlyField()
-
+    location=LocationSerializer()
     class Meta:
         model = BreadReservation
         fields = [
             "product",
             "location",
             "user",
-            "box_type",
             "quantity",
             "period",
             "start_date",
@@ -40,7 +39,7 @@ class ReservationSerializer(serializers.ModelSerializer):
     def get_total_price(self, obj):
         try:
             base_price = obj.product.price
-            total_items = obj.box_type * obj.quantity
+            total_items =  obj.quantity
             discount = obj.product.discount or 0
             discounted_price = base_price * (1 - discount / 100)
             return round(discounted_price * total_items, 2)

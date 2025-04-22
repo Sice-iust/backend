@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 from datetime import timedelta
 from urllib.parse import urlparse
-
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = os.getenv("SECRET_KEY")
 API_KEY=os.getenv("API_KEY")
-
+NESHAN_API = os.getenv("NESHAN_API")
 DEBUG = True
 
 ALLOWED_HOSTS = ["nanziback.liara.run",'127.0.0.1']
@@ -47,6 +47,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
 ]
+
+DATABASES = {"default": dj_database_url.parse(os.getenv("DATABASE_URL"))}
+
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  
@@ -103,19 +106,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
-tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": tmpPostgres.path.replace("/", ""),
-        "USER": tmpPostgres.username,
-        "PASSWORD": tmpPostgres.password,
-        "HOST": tmpPostgres.hostname,
-        "PORT": 5432,
-    }
-}
 
 LANGUAGE_CODE = 'en-us'
 

@@ -28,20 +28,18 @@ class SummerizedCartSerializer(serializers.ModelSerializer):
             "quantity",
             "price",
             "discounted_price",
-            "box_type"
         ]
     def get_price(self, obj):
 
-        price = (obj.product.price * obj.quantity*obj.box_type)
+        price = (obj.product.price * obj.quantity)
         return price
 
     def get_discountedprice(self, obj):
 
-        price_before_discount = obj.product.price * obj.quantity * obj.box_type
+        price_before_discount = obj.product.price * obj.quantity 
         discount = (
             (obj.product.price * obj.product.discount / 100)
             * obj.quantity
-            * obj.box_type
         )
         return price_before_discount - discount
 
@@ -66,7 +64,6 @@ class CartSerializer(serializers.ModelSerializer):
             "total_discount",
             "total_price",
             "total_actual_price",
-            "box_type"
         ]
 
     def get_stock(self,obj):
@@ -75,11 +72,12 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_price(self, obj):
 
-        return obj.product.price * obj.quantity * obj.box_type
+        return obj.product.price * obj.quantity 
 
     def get_total_price(self, obj):
 
-        price = obj.product.price * obj.quantity * obj.box_type
+        price = obj.product.price * obj.quantity 
+
         return price
 
     def get_total_actual_price(self, obj):
@@ -88,7 +86,7 @@ class CartSerializer(serializers.ModelSerializer):
         discount = (
             (obj.product.price * obj.product.discount / 100)
             * obj.quantity
-            * obj.box_type
+            
         )
         return price_before_discount - discount
 
@@ -97,7 +95,7 @@ class CartSerializer(serializers.ModelSerializer):
         return (
             (obj.product.price * obj.product.discount / 100)
             * obj.quantity
-            * obj.box_type
+            
         )
 
 
@@ -110,14 +108,9 @@ class CartDiscountSerializer(serializers.Serializer):
     discount = serializers.FloatField()
 
 
-class BoxQuantitiesSerializer(serializers.Serializer):
-    Box_of_1 = serializers.IntegerField()
-    Box_of_2 = serializers.IntegerField()
-    Box_of_4 = serializers.IntegerField()
-    Box_of_6 = serializers.IntegerField()
-    Box_of_8 = serializers.IntegerField()
 
-
-class QuentitySerializer(serializers.Serializer):
-    product_id = serializers.IntegerField()
-    box_quantities = BoxQuantitiesSerializer()
+class QuentitySerializer(serializers.ModelSerializer):
+    product_id = serializers.IntegerField(source="product.id", read_only=True)
+    class Meta:
+        model=CartItem
+        fields=['product_id','quantity']

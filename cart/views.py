@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
@@ -33,8 +33,8 @@ class CartView(APIView):
             discount = item.product.discount or 0
             quantity = item.quantity
 
-            total_price += price * quantity * item.box_type
-            total_discount += (price * discount / 100) * quantity * item.box_type
+            total_price += price * quantity
+            total_discount += (price * discount / 100) * quantity 
 
         total_actual_price = total_price - total_discount
         if total_actual_price<0:
@@ -56,87 +56,75 @@ class SingleCartView(APIView):
     serializer_class = CRUDCartSerializer
     permission_classes = [IsAuthenticated]
 
-    def validate_quantity(self, quantity, box_type, product):
-        if quantity is None or quantity <= 0:
-            return "Enter quantity"
-
-        stock_dict = {
-            1: product.stock_1,
-            2: product.stock_2,
-            4: product.stock_4,
-            6: product.stock_6,
-            8: product.stock_8,
-        }
-
-        if box_type not in stock_dict:
-            return "Invalid box type"
-
-        if quantity > stock_dict[box_type]:
-            return "Not enough stock available"
-
-        return None
-
-    def post(self, request, id, box_type):
+    def post(self, request, id):
         user = request.user
         product = get_object_or_404(Product, id=id)
-
-        if box_type not in [1,2, 4, 6, 8]:
-            return Response({"error": "Invalid box type"}, status=400)
 
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             quantity = serializer.validated_data.get("quantity")
-
-            error_message = self.validate_quantity(quantity, box_type, product)
-            if error_message:
-                return Response({"error": error_message}, status=400)
-
+            if quantity<=0:
+                return Response("you should enter positive.")
             if CartItem.objects.filter(
-                user=user, product=product, box_type=box_type
+                user=user, product=product
             ).exists():
                 return Response(
                     {"error": "You already have this product in your cart"}, status=400
                 )
 
             new_cart = CartItem.objects.create(
-                user=user, product=product, quantity=quantity, box_type=box_type
+                user=user, product=product, quantity=quantity
             )
             return Response({"success": "Cart saved"}, status=201)
 
         return Response(serializer.errors, status=400)
 
-    def put(self, request, id, box_type):
+
+class SingleModifyCartView(APIView):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="update", description="Enter Update mode", required=True, type=str
+            ),
+        ]
+    )
+    def put(self, request, id):
         user = request.user
+        update_mode = request.query_params.get("update")
+
+        if not update_mode:
+            return Response({"error": "Enter Update Mode"}, status=400)
+
         product = get_object_or_404(Product, id=id)
         cart = CartItem.objects.filter(
-            user=user, product=product, box_type=box_type
+            user=user, product=product
         ).first()
 
         if not cart:
             return Response(
                 {"error": "You don't have this product in your cart"}, status=404
             )
-
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            quantity = serializer.validated_data.get("quantity")
-
-            error_message = self.validate_quantity(quantity, box_type, product)
-            if error_message:
-                return Response({"error": error_message}, status=400)
-
-            cart.quantity = quantity
+        quen=cart.quantity
+        if update_mode=='add':
+            cart.quantity += 1
+            cart.save()
+            return Response({"success": "Cart updated"}, status=200)
+        if update_mode=='delete':
+            if quen<=1:
+                return Response({"message":"you should delete it."})
+            cart.quantity -= 1
             cart.save()
             return Response({"success": "Cart updated"}, status=200)
 
         return Response(serializer.errors, status=400)
 
-    def delete(self, request, id, box_type):
+    def delete(self, request, id):
         user = request.user
         product = get_object_or_404(Product, id=id)
 
         cart_item = CartItem.objects.filter(
-            user=user, product=product, box_type=box_type
+            user=user, product=product
         )
         if not cart_item.exists():
             return Response(
@@ -148,18 +136,18 @@ class SingleCartView(APIView):
 
 
 class HeaderView(APIView):
+    permission_classes = [AllowAny] 
     def get(self, request):
-        if not request.user.is_authenticated:
-            return Response({"is_login": False})
+        if request.user.is_authenticated:
+            return Response(
+                {
+                    "is_login": True,
+                    "username": request.user.username,
+                    "nums": CartItem.objects.filter(user=request.user).count(),
+                }
+            )
 
-        user = request.user
-        cart_count = CartItem.objects.filter(user=user).count()
-
-        return Response({
-            "is_login": True,
-            "username": user.username,
-            "nums": cart_count
-        })
+        return Response({"is_login": False})
 
 
 class DiscountedCartView(APIView):
@@ -219,10 +207,12 @@ class DiscountedCartView(APIView):
         total_discount = 0
 
         for item in cart_items:
-            item_price = item.product.price * item.quantity * item.box_type
+            item_price = item.product.price * item.quantity 
             item_discount = (
-                item.product.price * item.product.discount / 100
-            ) * item.quantity *item.box_type
+                (item.product.price * item.product.discount / 100)
+                * item.quantity
+                
+            )
             total_price += item_price
             total_discount += item_discount
 
@@ -281,19 +271,8 @@ class DiscountedCartView(APIView):
 class QuentityView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = QuentitySerializer
-
-    def get(self, request, id):
+    def get(self, request):
         user = request.user
-        cart_items = CartItem.objects.filter(user=user, product_id=id)
-
-        all_box_types = dict(CartItem.BOX_CHOICES)
-        box_quantity = {f"Box_of_{key}": 0 for key in all_box_types}
-
-        for item in cart_items:
-            label = f"Box_of_{item.box_type}"
-            box_quantity[label] += item.quantity
-
-        data = {"product_id": id, "box_quantities": box_quantity}
-
-        serializer = self.serializer_class(instance=data)
+        cart_items = CartItem.objects.filter(user=user).all()
+        serializer=self.serializer_class(cart_items,many=True)
         return Response(serializer.data)

@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from .models import *
 from phonenumber_field.modelfields import PhoneNumberField
 from drf_spectacular.utils import extend_schema_field
-
+from order.serializers import UserSerializer
 User = get_user_model()
 
 
@@ -60,3 +60,9 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+class LocationSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    class Meta:
+        model=Location
+        fields = ["id","user", "address", "name", "reciver","phonenumber"]

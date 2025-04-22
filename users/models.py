@@ -92,3 +92,12 @@ class Otp(models.Model):
 
     def __str__(self):
         return f"{self.phonenumber} - {self.otp} ({self.otp_created_at})"
+
+
+class Location(models.Model):
+    user=models.ForeignKey(User,on_delete=models.CASCADE)
+    name = models.CharField(max_length=255,null=False,blank=False)
+    address=models.TextField(null=False,blank=False)
+    detail=models.TextField(null=True,blank=True)
+    phonenumber = PhoneNumberField(region="IR",blank=True,null=True)
+    reciver=models.CharField(max_length=255,null=True,blank=True)

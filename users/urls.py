@@ -9,4 +9,6 @@ urlpatterns = [
     path("signup/", SignUpVerifyOTPView.as_view()),
     path("logout/", LogOutView.as_view()),
     path("profile/update/", UpdateProfileView.as_view()),
+    path("locations/mylocation/", LocationView.as_view()),
+    path("location/", NeshanLocationView.as_view()),
 ]
