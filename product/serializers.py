@@ -106,3 +106,7 @@ class ProductDiscountSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['name']
+class ProductCommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductComment
+        fields = ['product','comment','user']

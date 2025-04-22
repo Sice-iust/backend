@@ -205,7 +205,34 @@ class AllProductView(APIView):
 
         return Response(serializer)
 
-
+class ProductCommentView(APIView):
+    serializer_class = ProductCommentSerializer
+    def post(self, request, id):
+        if not request.user.is_authenticated:
+            return Response("You are not logged in.", status=401)
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            serializer.save(product=product, user=request.user)
+            return Response({"message": "Product saved successfully"})
+        return Response(
+            {"message": "Something went wrong", "errors": serializer.errors}, status=400
+        )
+class SingleProductCommentsView(APIView):
+    serializer_class = ProductCommentSerializer
+    def get(self, request, id):
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+        comments = ProductComment.objects.filter(product=id)
+        serializer = self.serializer_class(comments,  many=True,context={"request": request}).data
+        return Response(serializer)
 class CategoryView(APIView):
     serializer_class = ProductSerializer
 
