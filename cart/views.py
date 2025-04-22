@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
@@ -136,18 +136,18 @@ class SingleModifyCartView(APIView):
 
 
 class HeaderView(APIView):
+    permission_classes = [AllowAny] 
     def get(self, request):
-        if not request.user.is_authenticated:
-            return Response({"is_login": False})
+        if request.user.is_authenticated:
+            return Response(
+                {
+                    "is_login": True,
+                    "username": request.user.username,
+                    "nums": CartItem.objects.filter(user=request.user).count(),
+                }
+            )
 
-        user = request.user
-        cart_count = CartItem.objects.filter(user=user).count()
-
-        return Response({
-            "is_login": True,
-            "username": user.username,
-            "nums": cart_count
-        })
+        return Response({"is_login": False})
 
 
 class DiscountedCartView(APIView):
