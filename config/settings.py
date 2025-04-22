@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 from datetime import timedelta
 from urllib.parse import urlparse
-
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,17 +48,8 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
 ]
 
-tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": tmpPostgres.path.replace("/", ""),
-        "USER": tmpPostgres.username,
-        "PASSWORD": tmpPostgres.password,
-        "HOST": tmpPostgres.hostname,
-        "PORT": 5432,
-    }
-}
+DATABASES = {"default": dj_database_url.parse(os.getenv("DATABASE_URL"))}
+
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  
