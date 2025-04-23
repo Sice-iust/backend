@@ -60,7 +60,25 @@ class Rate(models.Model):
     def __str__(self):
         return f"{self.rated_by.username} rated {self.product.name} {self.rate}/5"
 
+class ProductComment(models.Model):
+    SUGGESTED = 3
+    NOT_SUGGESTED = 2
+    NO_INFO = 1
 
+    SUGGEST_STATUS = [
+        (SUGGESTED, 'suggested'),
+        (NOT_SUGGESTED, 'not suggested'),
+        (NO_INFO, 'no information'),]
+    
+    comment = models.TextField(max_length=400)
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="comments" )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="comments" )
+    posted_at = models.DateTimeField(auto_now_add=True)
+    suggested = models.IntegerField(choices=SUGGEST_STATUS,default=NO_INFO)
+    class Meta:
+        order_with_respect_to = 'product'
 # class Discount(models.Model):
 #     product = models.ForeignKey(
 #         Product, on_delete=models.CASCADE, related_name="discounts"
