@@ -181,3 +181,30 @@ class AllOrderView(APIView):
         return Response(
             {"current_orders": now_serializer.data, "past_orders": past_serializer.data}
         )
+
+
+from decimal import Decimal
+
+
+class OrderInvoiceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id):
+        user = request.user
+        order = get_object_or_404(Order, id=id, user=user)
+        invoices = OrderItem.objects.filter(order=order)
+        serializer = OrderInvoiceSerializer(
+            invoices, many=True, context={"request": request}
+        )
+        total_price = order.total_price or Decimal("0")
+        discount = order.profit or Decimal("0")
+        shipping_fee = order.shipping_fee or Decimal("0")
+
+        return Response(
+            {
+                "payment": total_price + discount - shipping_fee,
+                "shipping_fee": shipping_fee,
+                "discount": discount,
+                "items": serializer.data,
+            }
+        )
