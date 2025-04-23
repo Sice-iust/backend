@@ -117,4 +117,16 @@ class ProductDiscountSerializer(serializers.ModelSerializer):
 class ProductCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductComment
-        fields = ['product','comment','user']
+        fields = ['product','comment','user','suggested']
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.context.get('include_user'):
+            self.fields.pop('user')
+        if not self.context.get('include_product'):
+            self.fields.pop('product')
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['user_name'] = instance.user.username
+        data['suggested_label'] = instance.suggested
+        data['posted_at'] = instance.posted_at
+        return data

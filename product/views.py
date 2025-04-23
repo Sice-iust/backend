@@ -11,6 +11,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import status
 
 class ProductView(APIView):
     serializer_class = ProductSerializer
@@ -209,19 +210,20 @@ class AllProductView(APIView):
 
 class ProductCommentView(APIView):
     serializer_class = ProductCommentSerializer
-    def post(self, request, id):
+    def post(self, request,id):
         if not request.user.is_authenticated:
-            return Response("You are not logged in.", status=401)
+            return Response("You are not logged in.", status=status.HTTP_401_UNAUTHORIZED)
         try:
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
             raise Http404("Product not found")
+        
         serializer = self.serializer_class(
-            data=request.data, context={"request": request}
+            data=request.data, context={'include_user': False, 'include_product':False}
         )
         if serializer.is_valid():
             serializer.save(product=product, user=request.user)
-            return Response({"message": "Product saved successfully"})
+            return Response("You have commented the product.", status=201)
         return Response(
             {"message": "Something went wrong", "errors": serializer.errors}, status=400
         )
@@ -232,9 +234,10 @@ class SingleProductCommentsView(APIView):
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
             raise Http404("Product not found")
-        comments = ProductComment.objects.filter(product=id)
-        serializer = self.serializer_class(comments,  many=True,context={"request": request}).data
-        return Response(serializer)
+        comments = product.comments.select_related('user').all()
+        data = self.serializer_class(comments,  many=True,context={'include_user': False,
+                                                                          'include_product':False}).data
+        return Response(data)
 class CategoryView(APIView):
     serializer_class = ProductSerializer
 
