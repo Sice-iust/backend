@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 from datetime import timedelta
 from urllib.parse import urlparse
-
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = os.getenv("SECRET_KEY")
 API_KEY=os.getenv("API_KEY")
-
+NESHAN_API = os.getenv("NESHAN_API")
 DEBUG = True
 
 ALLOWED_HOSTS = ["nanziback.liara.run",'127.0.0.1']
@@ -28,8 +28,13 @@ INSTALLED_APPS = [
     "users",
     "phonenumber_field",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "corsheaders",
+    "product",
+    "cart",
+    "order",
+    "reserve",
 ]
 
 MIDDLEWARE = [
@@ -42,6 +47,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
 ]
+
+DATABASES = {"default": dj_database_url.parse(os.getenv("DATABASE_URL"))}
+
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",  
@@ -99,19 +107,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": tmpPostgres.path.replace("/", ""),
-        "USER": tmpPostgres.username,
-        "PASSWORD": tmpPostgres.password,
-        "HOST": tmpPostgres.hostname,
-        "PORT": 5432,
-    }
-}
-
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
@@ -122,7 +117,8 @@ USE_TZ = True
 AUTH_USER_MODEL = "users.User"
 
 STATIC_URL = 'static/'
-
+MEDIA_URL = "media/"  
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -134,8 +130,8 @@ REST_FRAMEWORK = {
     ],
 }
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5), 
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=3),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
@@ -147,4 +143,4 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API for Nanzi",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-}
+    "COMPONENT_SPLIT_REQUEST": True}

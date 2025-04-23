@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from .models import *
 from .serializers import *
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from django.contrib.auth import login,authenticate
@@ -9,12 +9,18 @@ from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .utils import send_otp_sms
+from .utils import send_otp_sms, reverse_geocode
 from rest_framework.permissions import IsAuthenticated
 from django.utils.timezone import now
 from datetime import timedelta, datetime
 import random
 from django.utils import timezone
+from rest_framework.parsers import MultiPartParser, FormParser
+from order.models import DiscountCart
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework.parsers import MultiPartParser, FormParser
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -31,8 +37,7 @@ class SendOTPView(APIView):
             otp_count = recent_otps.count()
             if otp_count >= 3:
                 return Response(
-                    {"message": "You can only request 3 OTPs every 10 minutes."},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    {"message": "You can only request 3 OTPs every 10 minutes."}
                 )
 
             otp = Otp.objects.create(phonenumber=phone)
@@ -104,6 +109,7 @@ class SignUpVerifyOTPView(APIView):
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
+            DiscountCart.objects.create(user=user,text='Welcome',percentage=25,max_discount=80,max_use=1,first_time=False)
             return Response(
                 {
                     "message": "SignUp successful",
@@ -116,7 +122,111 @@ class SignUpVerifyOTPView(APIView):
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class=ProfileSerializer
+    def get(self, request):
+        user = request.user
+        seria = self.serializer_class(user, context={"request": request})
+        return Response(seria.data)
+
+class UpdateProfileView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated]
+    serializer_class = UpdateProfileSerializer
+
+    def put(self, request):
+        user = request.user
+        serializer = self.serializer_class(
+            user, data=request.data, partial=True, context={"request": request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+
+class LogOutView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class=LogOutSerializer
+
+    def post(self, request):
+        refresh_token = self.serializer_class(data=request.data)
+        if not refresh_token:
+            return Response({"error": "Refresh token required."}, status=400)
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"message": "Logged out successfully."}, status=200)
+        except TokenError:
+            return Response({"error": "Invalid or expired token."}, status=400)
+
+
+class LocationView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LocationSerializer
 
     def get(self, request):
         user = request.user
-        return Response({"username": user.username})
+        locations = Location.objects.filter(user=user).all() 
+        if not locations.exists():
+            return Response(
+                {"error": "You have not submitted any locations yet."}, status=404
+            )
+
+        serializer = self.serializer_class(locations, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = request.user
+
+        name = request.data.get("name")
+        reciver = request.data.get("reciver")
+        phonenumber = request.data.get("phonenumber")
+        address=request.data.get('address')
+
+        location = Location.objects.create(
+            user=user,
+            name=name,
+            reciver=reciver,
+            phonenumber=phonenumber,
+            address=address,
+ 
+        )
+
+        return Response(LocationSerializer(location).data, status=201)
+
+class NeshanLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="lng", description="Longitude", required=True, type=float
+            ),
+            OpenApiParameter(
+                name="lat", description="Latitude", required=True, type=float
+            ),
+        ]
+    )
+    def get(self, request):
+        lng = request.query_params.get("lng")
+        lat = request.query_params.get("lat")
+
+        if not lng or not lat:
+            return Response({"error": "lng and lat are required"}, status=400)
+
+        try:
+            lng = float(lng)
+            lat = float(lat)
+        except ValueError:
+            return Response({"error": "lng and lat must be floats"}, status=400)
+
+        try:
+            data = reverse_geocode(lat, lng)
+        except Exception as e:
+            return Response({"error": f"Neshan API failed: {str(e)}"}, status=500)
+
+        if not data:
+            return Response({"error": "Neshan API returned no data"}, status=500)
+
+        return Response(data)
