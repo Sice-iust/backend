@@ -235,9 +235,19 @@ class SingleProductCommentsView(APIView):
         except Product.DoesNotExist:
             raise Http404("Product not found")
         comments = product.comments.select_related('user').all()
-        data = self.serializer_class(comments,  many=True,context={'include_user': False,
-                                                                          'include_product':False}).data
-        return Response(data)
+        rates = product.ratings.all()
+        response_data = []
+        for comment in comments:
+            rating = rates.filter(product=product, rated_by=comment.user).first()
+            response_data.append({
+                "user_name": comment.user.username,
+                "comment": comment.comment,
+                "suggested": comment.suggested,
+                "posted_at": comment.posted_at,
+                "rating": rating.rate if rating else None
+            })
+        return Response(response_data)
+
 class CategoryView(APIView):
     serializer_class = ProductSerializer
 
