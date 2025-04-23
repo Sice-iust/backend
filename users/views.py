@@ -64,13 +64,13 @@ class LoginVerifyOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).last()
             if not user:
                 return Response({"message":"you are not registered."})
-            otp_saved = Otp.objects.filter(phonenumber=phone).last()
-            if not otp_saved:
-                return Response({"message":"OTP is used or expired."})
-            if not otp_saved.is_otp_valid():
-                return Response({"message":"OTP expired, request a new one."})
-            if otp_saved.otp != serializer.validated_data["otp"]:
-                return Response("Invalid OTP.")
+            # otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            # if not otp_saved:
+            #     return Response({"message":"OTP is used or expired."})
+            # if not otp_saved.is_otp_valid():
+            #     return Response({"message":"OTP expired, request a new one."})
+            # if otp_saved.otp != serializer.validated_data["otp"]:
+            #     return Response("Invalid OTP.")
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
@@ -194,6 +194,43 @@ class LocationView(APIView):
         )
 
         return Response(LocationSerializer(location).data, status=201)
+
+
+class SingleLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LocationSerializer
+
+    def put(self, request, id):
+        user = request.user
+        try:
+            location = Location.objects.get(id=id, user=user)
+        except Location.DoesNotExist:
+            return Response(
+                {"error": "Location not found or not owned by user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.serializer_class(location, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, id):
+        user = request.user
+        try:
+            location = Location.objects.get(id=id, user=user)
+        except Location.DoesNotExist:
+            return Response(
+                {"error": "Location not found or not owned by user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        location.delete()
+        return Response(
+            {"message": "Location deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
 
 class NeshanLocationView(APIView):
     permission_classes = [IsAuthenticated]

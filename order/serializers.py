@@ -180,3 +180,9 @@ class DiscountCartSerializer(serializers.ModelSerializer):
             )
 
         return representation
+
+class OrderInvoiceSerializer(serializers.ModelSerializer):
+    product = ProductCartSerializer()
+    class Meta:
+        model=OrderItem
+        fields = ["product", "quantity"]

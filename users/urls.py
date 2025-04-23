@@ -11,4 +11,5 @@ urlpatterns = [
     path("profile/update/", UpdateProfileView.as_view()),
     path("locations/mylocation/", LocationView.as_view()),
     path("location/", NeshanLocationView.as_view()),
+    path("locations/modify/<int:id>/", SingleLocationView.as_view()),
 ]
