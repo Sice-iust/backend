@@ -135,19 +135,43 @@ class SingleModifyCartView(APIView):
         return Response({"success": "Cart item deleted"}, status=200)
 
 
-class HeaderView(APIView):
-    permission_classes = [AllowAny] 
-    def get(self, request):
-        if request.user.is_authenticated:
-            return Response(
-                {
-                    "is_login": True,
-                    "username": request.user.username,
-                    "nums": CartItem.objects.filter(user=request.user).count(),
-                }
-            )
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from .models import CartItem
 
-        return Response({"is_login": False})
+
+class HeaderView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []  # Bypass DRF's authentication for this view
+
+    def get(self, request):
+        auth_header = request.headers.get("Authorization", "")
+
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            try:
+                # Manually validate the token
+                auth = JWTAuthentication()
+                validated_token = auth.get_validated_token(token)
+                user = auth.get_user(validated_token)
+
+                return Response(
+                    {
+                        "is_login": True,
+                        "username": user.username,
+                        "nums": CartItem.objects.filter(user=user).count(),
+                    }
+                )
+            except (TokenError, InvalidToken):
+                # Invalid or expired token
+                return Response(
+                    {"is_login": False, "detail": "Token is invalid or expired"}
+                )
+
+        return Response({"is_login": False, "detail": "No token provided"})
 
 
 class DiscountedCartView(APIView):
