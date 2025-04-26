@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .utils import send_otp_sms, reverse_geocode
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from django.utils.timezone import now
 from datetime import timedelta, datetime
 import random
@@ -121,12 +121,14 @@ class SignUpVerifyOTPView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     serializer_class=ProfileSerializer
     def get(self, request):
-        user = request.user
-        seria = self.serializer_class(user, context={"request": request})
-        return Response(seria.data)
+        if request.user.is_authenticated:
+            user = request.user
+            seria = self.serializer_class(user, context={"request": request})
+            return Response(seria.data)
+        return Response({"message":"no login"})
 
 class UpdateProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]

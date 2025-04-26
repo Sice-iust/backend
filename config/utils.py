@@ -11,8 +11,7 @@ from rest_framework import status
 def custom_exception_handler(exc, context):
     if isinstance(exc, (InvalidToken, TokenError, JWTAuthFailed)):
         return Response(
-            {"detail": "Token is invalid or expired.", "is_login": False},
-            status=status.HTTP_401_UNAUTHORIZED,
+            {"detail": "Token is invalid or expired.", "is_login": False}
         )
 
     response = exception_handler(exc, context)
