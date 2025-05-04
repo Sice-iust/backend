@@ -146,15 +146,15 @@ class UpdateProfileView(APIView):
 
 class LogOutView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class=LogOutSerializer
+    serializer_class = LogOutSerializer
 
     def post(self, request):
-        refresh_token = self.serializer_class(data=request.data)
-        if not refresh_token:
-            return Response({"error": "Refresh token required."}, status=400)
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
 
         try:
-            token = RefreshToken(refresh_token)
+            token = RefreshToken(serializer.validated_data["refresh_token"])
             token.blacklist()
             return Response({"message": "Logged out successfully."}, status=200)
         except TokenError:
