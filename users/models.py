@@ -101,3 +101,4 @@ class Location(models.Model):
     detail=models.TextField(null=True,blank=True)
     phonenumber = PhoneNumberField(region="IR",blank=True,null=True)
     reciver=models.CharField(max_length=255,null=True,blank=True)
+    is_choose=models.BooleanField(default=False)

@@ -185,15 +185,16 @@ class LocationView(APIView):
         reciver = request.data.get("reciver")
         phonenumber = request.data.get("phonenumber")
         address=request.data.get('address')
-
+        Location.objects.filter(user=user, is_choose=True).update(is_choose=False)
         location = Location.objects.create(
             user=user,
             name=name,
             reciver=reciver,
             phonenumber=phonenumber,
             address=address,
- 
+            is_choose=True
         )
+
 
         return Response(LocationSerializer(location).data, status=201)
 
@@ -201,6 +202,7 @@ class LocationView(APIView):
 class SingleLocationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LocationSerializer
+
 
     def put(self, request, id):
         user = request.user
@@ -214,8 +216,16 @@ class SingleLocationView(APIView):
 
         serializer = self.serializer_class(location, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            if request.data.get("is_choose") is not None or True:
+                Location.objects.filter(user=user).exclude(id=location.id).update(
+                    is_choose=False
+                )
+
+                serializer.save(is_choose=True)
+            else:
+                serializer.save()
             return Response(serializer.data)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, id):
