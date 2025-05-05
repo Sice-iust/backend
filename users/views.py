@@ -279,3 +279,29 @@ class NeshanLocationView(APIView):
             return Response({"error": "Neshan API returned no data"}, status=500)
 
         return Response(data)
+
+
+class ChooseLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, id):
+        user = request.user
+        try:
+            location = Location.objects.get(id=id, user=user)
+        except Location.DoesNotExist:
+            return Response(
+                {"error": "Location not found or not owned by user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        Location.objects.filter(user=user).exclude(id=location.id).update(
+            is_choose=False
+        )
+
+        location.is_choose = True
+        location.save()
+
+        return Response(
+            {"success": "Location successfully chosen."},
+            status=status.HTTP_200_OK,
+        )
