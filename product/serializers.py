@@ -12,7 +12,6 @@ class SubcategorySerializer(serializers.ModelSerializer):
         fields = ['subcategory']
 
 
-
 class ProductSerializer(serializers.ModelSerializer):
 
     photo = serializers.ImageField(write_only=True, required=False)
@@ -92,21 +91,27 @@ class ProductCartSerializer(serializers.ModelSerializer):
 
 
 class SummerizedProductCartSerializer(serializers.ModelSerializer):
-
+    photo = serializers.SerializerMethodField("get_image")
     class Meta:
         model = Product
         fields = [
             "id",
-            "name",
+            "photo", "name",
             "price",
             "discount",
             "stock",
             "box_type",
-            "box_color","color",
+            "box_color",
+            "color",
         ]
 
     def validate_price(self, value):
         return value if value is not None else 0
+
+    def get_image(self, obj):
+        if obj.photo and hasattr(obj.photo, "url"):
+            return self.context["request"].build_absolute_uri(obj.photo.url)
+        return None
 
 
 class ProductDiscountSerializer(serializers.ModelSerializer):

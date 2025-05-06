@@ -40,6 +40,7 @@ class CartView(APIView):
         if total_actual_price<0:
             total_actual_price=0
 
+        shipping_fee = 30_000
 
         counts= CartItem.objects.filter(user=user).count()
         return Response(
@@ -47,6 +48,8 @@ class CartView(APIView):
                 "cart_items": serializer.data,
                 "total_discount": total_discount,
                 "total_actual_price": total_actual_price,
+                "shipping_fee":shipping_fee,
+                "total_actual_price_with_shipp":total_actual_price+shipping_fee,
                 "counts":counts,
             }
         )
