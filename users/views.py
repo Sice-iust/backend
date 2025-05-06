@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .utils import send_otp_sms, reverse_geocode
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from django.utils.timezone import now
 from datetime import timedelta, datetime
 import random
@@ -121,12 +121,14 @@ class SignUpVerifyOTPView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     serializer_class=ProfileSerializer
     def get(self, request):
-        user = request.user
-        seria = self.serializer_class(user, context={"request": request})
-        return Response(seria.data)
+        if request.user.is_authenticated:
+            user = request.user
+            seria = self.serializer_class(user, context={"request": request})
+            return Response(seria.data)
+        return Response({"message":"no login"})
 
 class UpdateProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -183,15 +185,16 @@ class LocationView(APIView):
         reciver = request.data.get("reciver")
         phonenumber = request.data.get("phonenumber")
         address=request.data.get('address')
-
+        Location.objects.filter(user=user, is_choose=True).update(is_choose=False)
         location = Location.objects.create(
             user=user,
             name=name,
             reciver=reciver,
             phonenumber=phonenumber,
             address=address,
- 
+            is_choose=True
         )
+
 
         return Response(LocationSerializer(location).data, status=201)
 
@@ -199,6 +202,7 @@ class LocationView(APIView):
 class SingleLocationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LocationSerializer
+
 
     def put(self, request, id):
         user = request.user
@@ -212,8 +216,16 @@ class SingleLocationView(APIView):
 
         serializer = self.serializer_class(location, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            if request.data.get("is_choose") is not None or True:
+                Location.objects.filter(user=user).exclude(id=location.id).update(
+                    is_choose=False
+                )
+
+                serializer.save(is_choose=True)
+            else:
+                serializer.save()
             return Response(serializer.data)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, id):
@@ -267,3 +279,29 @@ class NeshanLocationView(APIView):
             return Response({"error": "Neshan API returned no data"}, status=500)
 
         return Response(data)
+
+
+class ChooseLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, id):
+        user = request.user
+        try:
+            location = Location.objects.get(id=id, user=user)
+        except Location.DoesNotExist:
+            return Response(
+                {"error": "Location not found or not owned by user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        Location.objects.filter(user=user).exclude(id=location.id).update(
+            is_choose=False
+        )
+
+        location.is_choose = True
+        location.save()
+
+        return Response(
+            {"success": "Location successfully chosen."},
+            status=status.HTTP_200_OK,
+        )
