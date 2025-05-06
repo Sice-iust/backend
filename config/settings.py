@@ -12,6 +12,7 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = os.getenv("SECRET_KEY")
 API_KEY=os.getenv("API_KEY")
 NESHAN_API = os.getenv("NESHAN_API")
+API_KEY_FERZZ = os.getenv("API_KEY_FERZZ")
 DEBUG = True
 
 ALLOWED_HOSTS = ["nanziback.liara.run",'127.0.0.1']

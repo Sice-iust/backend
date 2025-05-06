@@ -55,6 +55,44 @@ class SendOTPView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# class SendOTPView(APIView):
+#     serializer_class = SendOTPSerializer
+
+#     def post(self, request):
+#         serializer = SendOTPSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data["phonenumber"]
+#             user = User.objects.filter(phonenumber=phone).first()
+
+#             ten_minutes_ago = now() - timedelta(minutes=10)
+#             recent_otps = Otp.objects.filter(
+#                 phonenumber=phone, otp_created_at__gte=ten_minutes_ago
+#             )
+#             if recent_otps.count() >= 3:
+#                 return Response(
+#                     {"message": "You can only request 3 OTPs every 10 minutes."},
+#                     status=status.HTTP_429_TOO_MANY_REQUESTS,
+#                 )
+
+#             otp_code, error = send_otp_sms(phone)
+#             if otp_code:
+#                 Otp.objects.create(phonenumber=phone, otp=otp_code)
+#                 return Response(
+#                     {
+#                         "message": "OTP sent",
+#                         "is_registered": bool(user),
+#                     },
+#                     status=status.HTTP_200_OK,
+#                 )
+#             else:
+#                 return Response(
+#                     {"message": "Failed to send OTP", "error": error},
+#                     status=status.HTTP_502_BAD_GATEWAY,
+#                 )
+
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class LoginVerifyOTPView(APIView):
     serializer_class = LoginVerifyOTPSerializer
     def post(self, request):
@@ -148,15 +186,15 @@ class UpdateProfileView(APIView):
 
 class LogOutView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = LogOutSerializer
+    serializer_class=LogOutSerializer
 
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
+        refresh_token = self.serializer_class(data=request.data)
+        if not refresh_token:
+            return Response({"error": "Refresh token required."}, status=400)
 
         try:
-            token = RefreshToken(serializer.validated_data["refresh_token"])
+            token = RefreshToken(refresh_token)
             token.blacklist()
             return Response({"message": "Logged out successfully."}, status=200)
         except TokenError:

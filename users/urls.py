@@ -13,6 +13,6 @@ urlpatterns = [
     path("locations/mylocation/", LocationView.as_view(), name="location"),
     path("location/", NeshanLocationView.as_view(),name="neshan-location"),
     path("locations/modify/<int:id>/", SingleLocationView.as_view(),name="location-detail"),
-    path('locations/choose/location/<int:id>',ChooseLocationView.as_view()),
+    path('locations/choose/location/<int:id>',ChooseLocationView.as_view(),name="choose-location"),
 
 ]
