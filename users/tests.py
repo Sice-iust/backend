@@ -425,3 +425,78 @@ class NeshanLocationViewTest(APITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get(self.url, {"lat": 35.6892, "lng": 51.3890})
         self.assertEqual(response.status_code, 401)
+
+
+class ChooseLocationViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            phonenumber="+989123456789",
+            username="testuser",
+            password="pass",
+            email="fatemeh@gmail.com",
+        )
+        self.refresh = RefreshToken.for_user(self.user)
+        self.access = self.refresh.access_token
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access}")
+
+        self.location1 = Location.objects.create(
+            user=self.user,
+            name="Home",
+            reciver="Ali",
+            phonenumber="09123456789",
+            address="Tehran",
+            is_choose=False,
+        )
+        self.location2 = Location.objects.create(
+            user=self.user,
+            name="Work",
+            reciver="Sara",
+            phonenumber="09129876543",
+            address="Karaj",
+            is_choose=True,
+        )
+        self.url = reverse("choose-location", args=[self.location1.id])
+
+    def test_choose_location_success(self):
+        response = self.client.put(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["success"], "Location successfully chosen.")
+
+        self.location1.refresh_from_db()
+        self.location2.refresh_from_db()
+
+        self.assertTrue(self.location1.is_choose)
+        self.assertFalse(self.location2.is_choose)
+
+    def test_choose_location_not_found_or_unauthorized(self):
+
+        other_user = User.objects.create_user(
+            phonenumber="+989111111111",
+            username="otheruser",
+            password="pass2",
+            email="other@gmail.com",
+        )
+        other_location = Location.objects.create(
+            user=other_user,
+            name="Other",
+            reciver="Reza",
+            phonenumber="09120000000",
+            address="Shiraz",
+            is_choose=False,
+        )
+
+        url = reverse("choose-location", args=[other_location.id])
+        response = self.client.put(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("error", response.data)
+        self.assertEqual(
+            response.data["error"], "Location not found or not owned by user."
+        )
+
+    def test_unauthenticated_user(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.put(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
