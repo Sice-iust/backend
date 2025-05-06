@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from .views import *
 
+
 urlpatterns = [
     path("sendotp/", SendOTPView.as_view(), name="send-otp"),
     path("login/", LoginVerifyOTPView.as_view(), name="login"),
@@ -12,5 +13,6 @@ urlpatterns = [
     path("locations/mylocation/", LocationView.as_view(), name="location"),
     path("location/", NeshanLocationView.as_view(),name="neshan-location"),
     path("locations/modify/<int:id>/", SingleLocationView.as_view(),name="location-detail"),
+    path('locations/choose/location/<int:id>',ChooseLocationView.as_view()),
 
 ]
