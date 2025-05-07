@@ -48,7 +48,6 @@ class FinalizeOrderSerializer(serializers.Serializer):
     location = LocationSerializer()
     deliver_time = serializers.IntegerField()
     discription = serializers.CharField(required=False, allow_blank=True)
-    shipping_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     profit = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -89,7 +88,6 @@ class FinalizeOrderSerializer(serializers.Serializer):
             total_price=validated_data["total_price"],
             profit=validated_data["profit"],
             status=1,
-            shipping_fee=validated_data["shipping_fee"],
             discount=discount,
         )
 
@@ -110,7 +108,6 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "delivery",
             "total_price",
             "status",
-            "shipping_fee",
             "profit",
         ]
 

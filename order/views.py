@@ -119,7 +119,6 @@ class SubmitOrderView(APIView):
                         status=400,
                     )
 
-            # Call the fixed serializer save method
             order = serializer.save()
 
             for item in cart_items:
@@ -198,7 +197,7 @@ class OrderInvoiceView(APIView):
         )
         total_price = order.total_price or Decimal("0")
         discount = order.profit or Decimal("0")
-        shipping_fee = order.shipping_fee or Decimal("0")
+        shipping_fee = order.delivery.shipping_fee or Decimal("0")
 
         return Response(
             {

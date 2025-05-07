@@ -49,7 +49,7 @@ class DeliverySlots(models.Model):
 class Order(models.Model):
     location = models.ForeignKey(
         Location, on_delete=models.SET_NULL, null=True, blank=True
-     )
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     delivery = models.ForeignKey(DeliverySlots,on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
