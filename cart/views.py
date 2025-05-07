@@ -40,7 +40,7 @@ class CartView(APIView):
         if total_actual_price<0:
             total_actual_price=0
 
-        shipping_fee = 30_000
+        shipping_fee = -1
 
         counts= CartItem.objects.filter(user=user).count()
         return Response(

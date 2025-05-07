@@ -209,14 +209,22 @@ class OrderInvoiceView(APIView):
         )
 
 class DeliverSlotView(APIView):
-    serializer_class=DeliverySlotSerializer
+    serializer_class = DeliverySlotsByDaySerializer
+
+    def group_slots_by_date(self,slots):
+        from collections import defaultdict
+
+        grouped = defaultdict(list)
+        for slot in slots:
+            grouped[slot.delivery_date].append(slot)
+
+        return [{"delivery_date": date, "slots": group} for date, group in grouped.items()]
 
     def get(self, request):
-        objects = DeliverySlots.objects.all()
-        serializer = self.serializer_class(
-            objects, many=True, context={"request": request}
-        )
-        return Response({"context": serializer.data})
+        slots = DeliverySlots.objects.all()
+        grouped_data = self.group_slots_by_date(slots)
+        serializer = DeliverySlotsByDaySerializer(grouped_data, many=True)
+        return Response(serializer.data)
 
 
 class AdminDeliverySlot(APIView):
