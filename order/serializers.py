@@ -53,12 +53,10 @@ class DeliverySlotSerializer(serializers.ModelSerializer):
         model = DeliverySlots
         fields = "__all__"
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data["delivery_date"] = instance.delivery_date.strftime(
-            "%A"
-        ) 
-        return data
+
+class DeliverySlotsByDaySerializer(serializers.Serializer):
+    delivery_date = serializers.DateField()
+    slots = DeliverySlotSerializer(many=True)
 
 
 class FinalizeOrderSerializer(serializers.Serializer):
