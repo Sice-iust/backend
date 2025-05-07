@@ -10,50 +10,26 @@ def format_phone_number(phone):
     return phone
 
 
-def send_otp_sms(phone_number, otp):
-    url = "https://gateway.ghasedak.me/rest/api/v1/WebService/SendOtpSMS"
 
-    payload = json.dumps(
-        {
-            "receptors": [
-                {
-                    "mobile": str(format_phone_number(phone_number)),
-                    "clientReferenceId": "1",
-                }
-            ],
-            "templateName": "nanzi",
-            "inputs": [{"param": "Code", "value": str(otp)}],
-            "udh": True,
-        }
-    )
-    headers = {
-        "Content-Type": "application/json",
-        "ApiKey": settings.API_KEY,
+
+def send_otp_sms(phone_number):
+    url = "https://api.ferzz.ir/services/call/call/"
+    payload = {
+        "destination": str(format_phone_number(phone_number)),
+        "token": settings.API_KEY_FERZZ,
     }
 
-    response = requests.request("POST", url, headers=headers, data=payload)
+    try:
+        response = requests.post(url, json=payload)
+    except requests.RequestException as e:
+        return None, f"Connection error: {str(e)}"
 
-    print(response.text)
-
-
-# def send_otp_sms(phone_number):
-#     url = "https://api.ferzz.ir/services/call/call/"
-#     payload = {
-#         "destination": str(format_phone_number(phone_number)),
-#         "token": settings.API_KEY_FERRZ,
-#     }
-
-#     try:
-#         response = requests.post(url, json=payload)
-#     except requests.RequestException as e:
-#         return None, f"Connection error: {str(e)}"
-
-#     if response.status_code == 200:
-#         data = response.json()
-#         otp_code = data.get("code")
-#         return otp_code, None
-#     else:
-#         return None, f"Status code {response.status_code}: {response.text}"
+    if response.status_code == 200:
+        data = response.json()
+        otp_code = data.get("code")
+        return otp_code, None
+    else:
+        return None, f"Status code {response.status_code}: {response.text}"
 
 
 def reverse_geocode(lat, lng):
