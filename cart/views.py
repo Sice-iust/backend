@@ -306,26 +306,15 @@ class DeliveryView(APIView):
 
 class CartDeliveryView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = SendOTPSerializer
+
     def post(self, request, delivery_id):
-        serializer = SendOTPSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        user_phone = serializer.validated_data["phonenumber"]
-
+        usr=request.user
         try:
             deliver = DeliverySlots.objects.get(id=delivery_id)
         except DeliverySlots.DoesNotExist:
             return Response(
                 {"error": "Delivery slot not found."}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        try:
-            usr = User.objects.get(phonenumber=user_phone)
-        except User.DoesNotExist:
-            return Response(
-                {"error": "User not found."}, status=status.HTTP_404_NOT_FOUND
             )
 
         if deliver.delivery_date < timezone.now().date():
