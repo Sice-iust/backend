@@ -9,6 +9,10 @@ from product.serializers import *
 from users.models import Location
 import secrets
 import string
+from rest_framework import serializers
+import pytz
+from django.utils import timezone
+from datetime import datetime
 
 
 User = get_user_model()
@@ -39,10 +43,23 @@ class LocationSerializer(serializers.ModelSerializer):
         model = Location
         fields = ["user", "address", "name", "reciver", "phonenumber"]
 
+
 class DeliverySlotSerializer(serializers.ModelSerializer):
+    start_time = serializers.TimeField()
+    end_time = serializers.TimeField()
+    delivery_date = serializers.DateField()
+
     class Meta:
-        model=DeliverySlots
-        fields='__all__'
+        model = DeliverySlots
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["delivery_date"] = instance.delivery_date.strftime(
+            "%A"
+        ) 
+        return data
+
 
 class FinalizeOrderSerializer(serializers.Serializer):
     location = LocationSerializer()
