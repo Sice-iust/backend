@@ -7,6 +7,8 @@ from rest_framework.generics import ListAPIView
 from product.models import *
 from .models import *
 from .serializers import *
+from users.serializers import SendOTPSerializer
+from order.serializers import DeliverySlotSerializer
 from order.models import *
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -41,6 +43,10 @@ class CartView(APIView):
             total_actual_price=0
 
         shipping_fee = -1
+        delivery_cart = DeliveryCart.objects.filter(user=user).last()
+        if (delivery_cart and delivery_cart.delivery.delivery_date >= timezone.now().date() and 
+                delivery_cart.delivery.current_fill<delivery_cart.delivery.max_orders):
+            shipping_fee = delivery_cart.delivery.shipping_fee or 0
 
         counts= CartItem.objects.filter(user=user).count()
         return Response(
@@ -280,3 +286,63 @@ class QuentityView(APIView):
         cart_items = CartItem.objects.filter(user=user).all()
         serializer=self.serializer_class(cart_items,many=True)
         return Response(serializer.data)
+
+
+class DeliveryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        deliver_cart = DeliveryCart.objects.filter(user=user).last()
+
+        if not deliver_cart or not deliver_cart.delivery:
+            return Response({"detail": "No delivery found."}, status=404)
+
+        serializer = DeliverySlotSerializer(
+            deliver_cart.delivery, context={"request": request}
+        )
+        return Response(serializer.data)
+
+
+class CartDeliveryView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = SendOTPSerializer
+    def post(self, request, delivery_id):
+        serializer = SendOTPSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user_phone = serializer.validated_data["phonenumber"]
+
+        try:
+            deliver = DeliverySlots.objects.get(id=delivery_id)
+        except DeliverySlots.DoesNotExist:
+            return Response(
+                {"error": "Delivery slot not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            usr = User.objects.get(phonenumber=user_phone)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if deliver.delivery_date < timezone.now().date():
+            return Response(
+                {"error": "Cannot assign a past or current delivery slot."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cart_items = CartItem.objects.filter(user=usr)
+        if not cart_items.exists():
+            return Response(
+                {"error": "User has no cart items."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        DeliveryCart.objects.update_or_create(user=usr, defaults={"delivery": deliver})
+
+        return Response(
+            {"message": "Delivery assigned to cart successfully."},
+            status=status.HTTP_201_CREATED,
+        )

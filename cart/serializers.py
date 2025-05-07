@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from product.models import Product
 from product.serializers import ProductCartSerializer
-from .models import CartItem
+from .models import CartItem,DeliveryCart
 
 User = get_user_model()
 
@@ -108,9 +108,9 @@ class CartDiscountSerializer(serializers.Serializer):
     discount = serializers.FloatField()
 
 
-
 class QuentitySerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField(source="product.id", read_only=True)
     class Meta:
         model=CartItem
         fields=['product_id','quantity']
+
