@@ -39,10 +39,14 @@ class LocationSerializer(serializers.ModelSerializer):
         model = Location
         fields = ["user", "address", "name", "reciver", "phonenumber"]
 
+class DeliverySlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=DeliverySlots
+        fields='__all__'
 
 class FinalizeOrderSerializer(serializers.Serializer):
     location = LocationSerializer()
-    deliver_time = serializers.DateTimeField()
+    deliver_time = serializers.IntegerField()
     discription = serializers.CharField(required=False, allow_blank=True)
     shipping_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -55,59 +59,60 @@ class FinalizeOrderSerializer(serializers.Serializer):
         location_data = validated_data.pop("location")
         user = self.context["request"].user
 
-        location, created = Location.objects.get_or_create(
+        location, _ = Location.objects.get_or_create(
             user=user,
             address=location_data["address"],
             name=location_data["name"],
             reciver=location_data["reciver"],
             phonenumber=location_data["phonenumber"],
         )
-        discount_text = validated_data.get("discount_text", "")
+
+
+        try:
+            delivery = DeliverySlots.objects.get(id=validated_data["deliver_time"])
+        except DeliverySlot.DoesNotExist:
+            raise APIException("Invalid delivery slot selected.")
+
+        if delivery.current_fill >= delivery.max_orders:
+            raise APIException("This delivery slot is full.")
+
+        discount_text = validated_data.get("discount_text", "").strip()
         discount = None
         if discount_text:
             discount = DiscountCart.objects.filter(text=discount_text).first()
+
         order = Order.objects.create(
             location=location,
             user=user,
-            delivery_time=validated_data[
-                "deliver_time"
-            ],  
+            delivery=delivery,
             discription=validated_data.get("discription", ""),
             total_price=validated_data["total_price"],
             profit=validated_data["profit"],
-            status=1,  
+            status=1,
             shipping_fee=validated_data["shipping_fee"],
-            discount=discount, 
+            discount=discount,
         )
+
+        delivery.current_fill += 1
+        delivery.save()
 
         return order
 
 
 class MyOrderSerializer(serializers.ModelSerializer):
-    delivery_day = serializers.SerializerMethodField()
-    # user=UserSerializer()
-    delivery_clock = serializers.SerializerMethodField()
+    delivery=DeliverySlotSerializer()
     location = LocationSerializer()
     class Meta:
         model=Order
         fields = [
             "id",
             "location",
-            # "user",
-            "delivery_time",
-            "delivery_day",
-            "delivery_clock",
+            "delivery",
             "total_price",
             "status",
             "shipping_fee",
             "profit",
         ]
-
-    def get_delivery_day(self, obj):
-        return obj.get_jalali_delivery_day()
-
-    def get_delivery_clock(self, obj):
-        return obj.get_jalali_delivery_time()
 
 
 class MyOrderItemSerializer(serializers.ModelSerializer):
