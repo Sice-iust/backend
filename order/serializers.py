@@ -45,9 +45,6 @@ class LocationSerializer(serializers.ModelSerializer):
 
 
 class DeliverySlotSerializer(serializers.ModelSerializer):
-    start_time = serializers.TimeField()
-    end_time = serializers.TimeField()
-    delivery_date = serializers.DateField()
 
     class Meta:
         model = DeliverySlots

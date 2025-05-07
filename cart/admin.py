@@ -3,3 +3,4 @@ from .models import *
 
 admin.site.register(CartItem)
 
+admin.site.register(DeliveryCart)
