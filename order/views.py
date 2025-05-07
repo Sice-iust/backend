@@ -207,3 +207,67 @@ class OrderInvoiceView(APIView):
                 "items": serializer.data,
             }
         )
+
+class DeliverSlotView(APIView):
+    serializer_class=DeliverySlotSerializer
+
+    def get(self, request):
+        objects = DeliverySlots.objects.all()
+        serializer = self.serializer_class(
+            objects, many=True, context={"request": request}
+        )
+        return Response({"context": serializer.data})
+
+
+class AdminDeliverySlot(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeliverySlotSerializer
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def post(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class SingleAdminDeliverySlot(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeliverySlotSerializer
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def put(self, request, pk):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        try:
+            slot = DeliverySlots.objects.get(pk=pk)
+        except DeliverySlots.DoesNotExist:
+            return Response({"message": "Slot not found"}, status=404)
+
+        serializer = self.serializer_class(slot, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    def delete(self, request, pk):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        try:
+            slot = DeliverySlots.objects.get(pk=pk)
+            slot.delete()
+            return Response({"message": "Slot deleted"})
+        except DeliverySlots.DoesNotExist:
+            return Response({"message": "Slot not found"}, status=404)
