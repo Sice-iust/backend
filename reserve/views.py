@@ -11,9 +11,10 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from order.models import Order
-
+from rest_framework import status
+from users.models import Location
 class ReservationView(APIView):
-    authentication_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     serializer_class = ReservationSerializer
 
     def get(self, request):
@@ -25,13 +26,14 @@ class ReservationView(APIView):
             base_price = item.product.price
             total_items =  item.quantity
             discount = item.product.discount or 0
-            discounted_price = base_price * (1 - discount / 100)
+            discount_rate = Decimal(1) - (Decimal(discount) / Decimal(100))
+            discounted_price = base_price * discount_rate
             total_price_all += discounted_price * total_items
 
         return Response(
             {
                 "reservations": serializer.data,
-                "total_price_all": round(total_price_all, 2),
+                "total_price_all": total_price_all,
             }
         )
 
@@ -69,13 +71,13 @@ class AdminReservationView(APIView):
             base_price = item.product.price
             total_items =  item.quantity
             discount = item.product.discount or 0
-            discounted_price = base_price * (1 - discount / 100)
+            discounted_price = Decimal(base_price * (1 - discount / 100))
             total_price_all += discounted_price * total_items
 
         return Response(
             {
                 "reservations": serializer.data,
-                "total_price_all": round(total_price_all, 2),
+                "total_price_all": total_price_all,
             }
         )
 
@@ -103,7 +105,7 @@ class OrderReservesView(APIView):
             for res in reservations:
                 base_price = res.product.price
                 discount = res.product.discount or 0
-                discounted_price = base_price * (1 - discount / 100)
+                discounted_price = Decimal(base_price * (1 - discount / 100))
                 total_price += discounted_price * res.total_items
 
             location = reservations.first().location or "Unknown"
