@@ -7,6 +7,7 @@ import jdatetime
 from django.utils import timezone
 from datetime import timedelta
 from users.models import Location
+from order.models import DeliverySlots
 User = get_user_model()
 
 class BreadReservation(models.Model):
@@ -21,24 +22,27 @@ class BreadReservation(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
     period = models.CharField(max_length=10, choices=PERIOD_CHOICES)
-    start_date = models.DateTimeField(default=timezone.now)
+    delivery=models.ForeignKey(DeliverySlots,on_delete=models.PROTECT, null=True, blank=True)
     active = models.BooleanField(default=True)
     auto_pay = models.BooleanField(default=False)
     location=models.ForeignKey(Location,on_delete=models.SET_NULL, null=True, blank=True)
-    
+
     class Meta:
         unique_together = ("user", "product", "period")
 
     def __str__(self):
-        return f"{self.user.phonenumber} reserved {self.quantity} x Box of {self.box_type} ({self.period})"
+        return f"{self.user.phonenumber} reserved {self.quantity} x ({self.period})"
 
     @property
     def total_items(self):
         return self.box_type * self.quantity
 
     def next_delivery_date(self):
+        if not self.delivery:
+            return None
+        base_date = self.delivery.delivery_date
         if self.period == "weekly":
-            return self.start_date + timezone.timedelta(weeks=1)
+            return base_date + timedelta(weeks=1)
         elif self.period == "monthly":
-            return self.start_date + timezone.timedelta(days=30)
-
+            return base_date + timedelta(days=30)
+        return None
