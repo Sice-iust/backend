@@ -72,13 +72,13 @@ class LoginVerifyOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).last()
             if not user:
                 return Response({"message":"you are not registered."})
-            otp_saved = Otp.objects.filter(phonenumber=phone).last()
-            if not otp_saved:
-                return Response({"message":"OTP is used or expired."})
-            if not otp_saved.is_otp_valid():
-                return Response({"message":"OTP expired, request a new one."})
-            if otp_saved.otp != serializer.validated_data["otp"]:
-                return Response("Invalid OTP.")
+            # otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            # if not otp_saved:
+            #     return Response({"message":"OTP is used or expired."})
+            # if not otp_saved.is_otp_valid():
+            #     return Response({"message":"OTP expired, request a new one."})
+            # if otp_saved.otp != serializer.validated_data["otp"]:
+            #     return Response("Invalid OTP.")
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
@@ -102,13 +102,13 @@ class SignUpVerifyOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).last()
             if user:
                 return Response({"message":"this phone number is already registered."})
-            otp_saved = Otp.objects.filter(phonenumber=phone).last()
-            if not otp_saved:
-                return Response({"message":"OTP is used or expired."})
-            if not otp_saved.is_otp_valid():
-                return Response({"message":"OTP expired, request a new one."})
-            if otp_saved.otp != serializer.validated_data["otp"]:
-                return Response("Invalid OTP.")
+            # otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            # if not otp_saved:
+            #     return Response({"message":"OTP is used or expired."})
+            # if not otp_saved.is_otp_valid():
+            #     return Response({"message":"OTP expired, request a new one."})
+            # if otp_saved.otp != serializer.validated_data["otp"]:
+            #     return Response("Invalid OTP.")
             User.objects.create(
                 phonenumber=phone, username=serializer.validated_data["username"]
             )

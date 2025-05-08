@@ -9,7 +9,11 @@ def format_phone_number(phone):
         return "0" + phone[3:] 
     return phone
 
+import logging
+import requests
+from django.conf import settings
 
+logger = logging.getLogger(__name__)
 
 
 def send_otp_sms(phone_number):
@@ -21,7 +25,10 @@ def send_otp_sms(phone_number):
 
     try:
         response = requests.post(url, json=payload)
+        response.raise_for_status()
     except requests.RequestException as e:
+      
+        logger.error(f"Request failed: {str(e)}")
         return None, f"Connection error: {str(e)}"
 
     if response.status_code == 200:
@@ -29,6 +36,8 @@ def send_otp_sms(phone_number):
         otp_code = data.get("code")
         return otp_code, None
     else:
+    
+        logger.error(f"Error Response: {response.status_code} - {response.text}")
         return None, f"Status code {response.status_code}: {response.text}"
 
 
