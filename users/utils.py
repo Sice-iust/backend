@@ -16,10 +16,12 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
-def send_otp_sms(phone_number):
-    url = "https://api.ferzz.ir/services/call/call/"
+def send_otp_sms(phone_number, otp):
+    url = "https://sms.ferzz.ir/afg/send-message"
+    message = f"به نانزی خوش آمدید\nکد تایید شما: {otp}"
     payload = {
-        "destination": str(format_phone_number(phone_number)),
+        "phone": str(format_phone_number(phone_number)),
+        "message":message,
         "token": settings.API_KEY_FERZZ,
     }
 
@@ -27,7 +29,7 @@ def send_otp_sms(phone_number):
         response = requests.post(url, json=payload)
         response.raise_for_status()
     except requests.RequestException as e:
-      
+
         logger.error(f"Request failed: {str(e)}")
         return None, f"Connection error: {str(e)}"
 
@@ -36,7 +38,7 @@ def send_otp_sms(phone_number):
         otp_code = data.get("code")
         return otp_code, None
     else:
-    
+
         logger.error(f"Error Response: {response.status_code} - {response.text}")
         return None, f"Status code {response.status_code}: {response.text}"
 

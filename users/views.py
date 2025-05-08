@@ -36,30 +36,23 @@ class SendOTPView(APIView):
             recent_otps = Otp.objects.filter(
                 phonenumber=phone, otp_created_at__gte=ten_minutes_ago
             )
-            if recent_otps.count() >= 3:
+            otp_count = recent_otps.count()
+            if otp_count >= 3:
                 return Response(
-                    {"message": "You can only request 3 OTPs every 10 minutes."},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    {"message": "You can only request 3 OTPs every 10 minutes."}
                 )
 
-            otp_code, error = send_otp_sms(phone)
-            if otp_code:
-                            
-                last_four = str(otp_code)[-4:]  
-                Otp.objects.create(phonenumber=phone, otp=last_four)
-                return Response(
-                    {
-                        "message": "OTP sent",
-                        "is_registered": bool(user),
-                    },
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                return Response(
-                    {"message": "Failed to send OTP", "error": error},
-                    status=status.HTTP_502_BAD_GATEWAY,
-                )
+            otp = Otp.objects.create(phonenumber=phone)
+            otp = otp.generate_otp()
 
+            send_otp_sms(phone, otp)
+            return Response(
+                {
+                    "message": "OTP sent",
+                    "is_registered": bool(user),
+                },
+                status=status.HTTP_200_OK,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -72,13 +65,13 @@ class LoginVerifyOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).last()
             if not user:
                 return Response({"message":"you are not registered."})
-            # otp_saved = Otp.objects.filter(phonenumber=phone).last()
-            # if not otp_saved:
-            #     return Response({"message":"OTP is used or expired."})
-            # if not otp_saved.is_otp_valid():
-            #     return Response({"message":"OTP expired, request a new one."})
-            # if otp_saved.otp != serializer.validated_data["otp"]:
-            #     return Response("Invalid OTP.")
+            otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            if not otp_saved:
+                return Response({"message":"OTP is used or expired."})
+            if not otp_saved.is_otp_valid():
+                return Response({"message":"OTP expired, request a new one."})
+            if otp_saved.otp != serializer.validated_data["otp"]:
+                return Response("Invalid OTP.")
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
@@ -102,13 +95,13 @@ class SignUpVerifyOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).last()
             if user:
                 return Response({"message":"this phone number is already registered."})
-            # otp_saved = Otp.objects.filter(phonenumber=phone).last()
-            # if not otp_saved:
-            #     return Response({"message":"OTP is used or expired."})
-            # if not otp_saved.is_otp_valid():
-            #     return Response({"message":"OTP expired, request a new one."})
-            # if otp_saved.otp != serializer.validated_data["otp"]:
-            #     return Response("Invalid OTP.")
+            otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            if not otp_saved:
+                return Response({"message":"OTP is used or expired."})
+            if not otp_saved.is_otp_valid():
+                return Response({"message":"OTP expired, request a new one."})
+            if otp_saved.otp != serializer.validated_data["otp"]:
+                return Response("Invalid OTP.")
             User.objects.create(
                 phonenumber=phone, username=serializer.validated_data["username"]
             )
