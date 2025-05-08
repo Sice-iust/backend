@@ -79,11 +79,11 @@ class Otp(models.Model):
     otp_created_at = models.DateTimeField(
         default=timezone.now
     )  
-    # def generate_otp(self):
-    #     self.otp = str(random.randint(1000, 9999))
-    #     self.otp_created_at = timezone.now() 
-    #     self.save()
-    #     return self.otp
+    def generate_otp(self):
+        self.otp = str(random.randint(1000, 9999))
+        self.otp_created_at = timezone.now() 
+        self.save()
+        return self.otp
 
     def is_otp_valid(self):
         return self.otp_created_at and timezone.now() - self.otp_created_at < timedelta(
