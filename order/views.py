@@ -12,7 +12,9 @@ from django.utils import timezone
 from datetime import timedelta
 from django.http import Http404
 from django.shortcuts import get_object_or_404
-
+from django.utils import timezone
+from datetime import datetime
+from django.utils.timezone import now
 
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
@@ -221,7 +223,16 @@ class DeliverSlotView(APIView):
         return [{"delivery_date": date, "slots": group} for date, group in grouped.items()]
 
     def get(self, request):
-        slots = DeliverySlots.objects.all()
+        current_datetime = now()
+        current_date = current_datetime.date()
+        current_time = current_datetime.time()
+
+        slots = DeliverySlots.objects.filter(
+            delivery_date__gt=current_date
+        ) | DeliverySlots.objects.filter(
+            delivery_date=current_date, start_time__gt=current_time
+        )
+
         grouped_data = self.group_slots_by_date(slots)
         serializer = DeliverySlotsByDaySerializer(grouped_data, many=True)
         return Response(serializer.data)
