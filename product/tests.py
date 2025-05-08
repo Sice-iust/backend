@@ -388,7 +388,7 @@ User = get_user_model()
 #         self.rate1 = Rate.objects.create(product=self.product, rate=Decimal("4.5"),rated_by=self.user)
 #         self.rate2 = Rate.objects.create(product=self.product, rate=Decimal("3.8"),rated_by=self.user2)
 
-#         self.url = reverse("rate-view") 
+#         self.url = reverse("rate-view")
 
 #     def test_get_rate_list(self):
 #         response = self.client.get(self.url)
@@ -401,3 +401,133 @@ User = get_user_model()
 #         self.assertIn("rate", rate_data)
 #         self.assertEqual(Decimal(rate_data["rate"]), Decimal("4.5"))
 
+
+# class SingleRateViewAPITestCase(APITestCase):
+#     def setUp(self):
+#         self.user = User.objects.create_user(
+#             username="adminuser",
+#             password="adminpass",
+#             email="admin@example.com",
+#             phonenumber="+989034488755",
+#         )
+
+#         admin_group, _ = Group.objects.get_or_create(name="Admin")
+#         self.user.groups.add(admin_group)
+
+#         self.product = Product.objects.create(
+#             category="sangak",
+#             name="Sample Product",
+#             price=Decimal("50.00"),
+#             description="A great bread",
+#             stock=20,
+#             box_type=1,
+#             box_color="White",
+#             color="Brown",
+#             discount=Decimal(5),
+#         )
+
+#         self.url = reverse("rate-add", kwargs={"id": self.product.id})
+
+#         refresh = RefreshToken.for_user(self.user)
+#         self.access_token = str(refresh.access_token)
+#         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
+
+#     def test_post_create_rating(self):
+#         response = self.client.post(self.url, {"rate": "4.5"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+#         self.assertEqual(Rate.objects.count(), 1)
+#         self.assertEqual(Rate.objects.first().rate, Decimal("4.5"))
+
+#     def test_post_duplicate_rating(self):
+#         Rate.objects.create(
+#             product=self.product, rate=Decimal("3.5"), rated_by=self.user
+#         )
+#         response = self.client.post(self.url, {"rate": "4.5"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+#     def test_put_update_rating(self):
+#         Rate.objects.create(
+#             product=self.product, rate=Decimal("3.0"), rated_by=self.user
+#         )
+#         response = self.client.put(self.url, {"rate": "4.7"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_200_OK)
+#         self.product.refresh_from_db()
+#         self.assertEqual(float(self.product.average_rate), 4.7)
+
+#     def test_delete_rating(self):
+#         Rate.objects.create(
+#             product=self.product, rate=Decimal("4.0"), rated_by=self.user
+#         )
+#         response = self.client.delete(self.url)
+#         self.assertEqual(response.status_code, status.HTTP_200_OK)
+#         self.assertEqual(Rate.objects.count(), 0)
+
+#     def test_unauthorized_access(self):
+#         self.client.credentials()
+#         response = self.client.post(self.url, {"rate": "5"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ProductViewsTestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="adminuser",
+            password="adminpass",
+            email="admin@example.com",
+            phonenumber="+989034488755",
+        )
+        admin_group, _ = Group.objects.get_or_create(name="Admin")
+        self.user.groups.add(admin_group)
+        refresh = RefreshToken.for_user(self.user)
+        access_token = str(refresh.access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        self.product1 = Product.objects.create(
+            category="sangak",
+            name="Bread A",
+            price=Decimal("50.00"),
+            description="Good bread",
+            stock=10,
+            box_type=1,
+            box_color="Red",
+            color="Brown",
+            discount=Decimal("5"),
+            average_rate=4.5,
+        )
+        self.product2 = Product.objects.create(
+            category="barbari",
+            name="Bread B",
+            price=Decimal("60.00"),
+            description="Better bread",
+            stock=5,
+            box_type=1,
+            box_color="Blue",
+            color="Golden",
+            discount=Decimal("10"),
+            average_rate=3.5,
+        )
+
+        Subcategory.objects.create(product=self.product1, subcategory="traditional")
+        Subcategory.objects.create(product=self.product2, subcategory="crispy")
+
+        self.popular_url = reverse("popular-product")  
+        self.discount_url = reverse("discount-product") 
+
+    def test_popular_products(self):
+        response = self.client.get(self.popular_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertGreaterEqual(
+            response.data[0]["average_rate"], response.data[1]["average_rate"]
+        )
+
+    def test_discounted_products(self):
+        response = self.client.get(self.discount_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertGreaterEqual(
+            response.data[0]["discount"], response.data[1]["discount"]
+        )
+        self.assertIn("discounted_price", response.data[0])
+        self.assertIn(
+            "photo_url", response.data[0]
+        )  
