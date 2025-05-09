@@ -21,7 +21,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from wallet.models import UserWallet
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -107,6 +107,7 @@ class SignUpVerifyOTPView(APIView):
             )
             Otp.objects.filter(phonenumber=phone).delete()
             user = User.objects.filter(phonenumber=phone).first()
+            UserWallet.objects.create(user=user)
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
