@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema
 
 
 class WalletView(APIView):
@@ -24,24 +25,32 @@ class WalletView(APIView):
             status=201
         )
 
-    @swagger_auto_schema(
-        operation_summary="Transaction request",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=["user", "amount"],
-            properties={
-                'value': openapi.Schema(type=openapi.TYPE_NUMBER, format='decimal', description='Transaction amount'),
-                'type': openapi.Schema(type=openapi.TYPE_NUMBER, format='integer', description='Credit or Debit'),
-                'description': openapi.Schema(type=openapi.TYPE_STRING, description='Optional description'),
-            }
-        ),
-        responses={200: openapi.Response(description="Transaction processed")}
+    @extend_schema(
+    request=WalletTransactionSerializer,
+    responses={200: openapi.Response(description="Transaction was successful")}
     )
     def post(self,request):
         user = request.user
         wallet, _ = UserWallet.objects.get_or_create(user=user)
-        self.transaction_serializer_class(data=request.data,user=user,wallet=wallet)
+        serializer = self.transaction_serializer_class(
+            data=request.data,
+            context={"wallet": wallet, "status": WalletTransaction.Status.PENDING}
+        )
 
-
+        if not serializer.is_valid():
+            return Response({"message": "Something went wrong", "errors": serializer.errors}, status=400)
+        tx = serializer.save()
+        # some function to handle transaction
+        if True: # change later
+            tx.status = WalletTransaction.Status.SUCCESS
+            try:
+                wallet.apply_transaction(tx)
+                return Response({"message": "Transaction was successful"})
+            except ValidationError as e:
+                return Response({"message": "Something went wrong", "errors": e.message}, status=400)
+                
+        else:
+            tx.status = WalletTransaction.Status.FAILED
+            return Response({"message": "Something went wrong", "errors": "transaction failed"}, status=400)
 
 

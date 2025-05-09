@@ -9,9 +9,18 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model=WalletTransaction
         fields=['wallet','status','type','value','description']
+        read_only_fields = ['wallet', 'status']
         extra_kwargs = {
             'description': {'required': False},
         }
+    def create(self, validated_data):
+        validated_data['wallet'] = self.context.get('wallet')
+        validated_data['status'] = self.context.get('status')
+
+        if not validated_data['wallet'] or not validated_data['status']:
+            raise serializers.ValidationError("wallet and status must be provided in context.")
+        return super().create(validated_data)
+    
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['transaction_id'] = instance.transaction_id
