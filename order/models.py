@@ -60,11 +60,20 @@ class Order(models.Model):
     discount = models.ForeignKey(
         DiscountCart, on_delete=models.PROTECT, blank=True, null=True
     )
+    delivered_at = models.DateTimeField(null=True, blank=True) 
 
+    def save(self, *args, **kwargs):
+        if self.status == 4:
+            if (
+                not self.delivered_at or self.pk is None
+            ):  
+                self.delivered_at = timezone.now()
+        else:
+            self.delivered_at = None 
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Order #{self.id} by {self.user.phonenumber}"
-
 
 
 class OrderItem(models.Model):
