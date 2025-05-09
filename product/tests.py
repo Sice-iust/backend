@@ -2,13 +2,15 @@ from rest_framework.test import APITestCase
 from django.urls import reverse
 from rest_framework import status
 from decimal import Decimal
-from .models import Product, Subcategory,Rate
+from .models import Product, Subcategory,Rate, ProductComment
+from .serializers import ProductCommentSerializer
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 import tempfile
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import serializers
 
 User = get_user_model()
 
@@ -401,3 +403,246 @@ User = get_user_model()
 #         self.assertIn("rate", rate_data)
 #         self.assertEqual(Decimal(rate_data["rate"]), Decimal("4.5"))
 
+
+# class SingleRateViewAPITestCase(APITestCase):
+#     def setUp(self):
+#         self.user = User.objects.create_user(
+#             username="adminuser",
+#             password="adminpass",
+#             email="admin@example.com",
+#             phonenumber="+989034488755",
+#         )
+
+#         admin_group, _ = Group.objects.get_or_create(name="Admin")
+#         self.user.groups.add(admin_group)
+
+#         self.product = Product.objects.create(
+#             category="sangak",
+#             name="Sample Product",
+#             price=Decimal("50.00"),
+#             description="A great bread",
+#             stock=20,
+#             box_type=1,
+#             box_color="White",
+#             color="Brown",
+#             discount=Decimal(5),
+#         )
+
+#         self.url = reverse("rate-add", kwargs={"id": self.product.id})
+
+#         refresh = RefreshToken.for_user(self.user)
+#         self.access_token = str(refresh.access_token)
+#         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
+
+#     def test_post_create_rating(self):
+#         response = self.client.post(self.url, {"rate": "4.5"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+#         self.assertEqual(Rate.objects.count(), 1)
+#         self.assertEqual(Rate.objects.first().rate, Decimal("4.5"))
+
+#     def test_post_duplicate_rating(self):
+#         Rate.objects.create(
+#             product=self.product, rate=Decimal("3.5"), rated_by=self.user
+#         )
+#         response = self.client.post(self.url, {"rate": "4.5"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+#     def test_put_update_rating(self):
+#         Rate.objects.create(
+#             product=self.product, rate=Decimal("3.0"), rated_by=self.user
+#         )
+#         response = self.client.put(self.url, {"rate": "4.7"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_200_OK)
+#         self.product.refresh_from_db()
+#         self.assertEqual(float(self.product.average_rate), 4.7)
+
+#     def test_delete_rating(self):
+#         Rate.objects.create(
+#             product=self.product, rate=Decimal("4.0"), rated_by=self.user
+#         )
+#         response = self.client.delete(self.url)
+#         self.assertEqual(response.status_code, status.HTTP_200_OK)
+#         self.assertEqual(Rate.objects.count(), 0)
+
+#     def test_unauthorized_access(self):
+#         self.client.credentials()
+#         response = self.client.post(self.url, {"rate": "5"}, format="json")
+#         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ProductCommentViewsTestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="commenter",
+            password="commentpass",
+            email="commenter@example.com",
+            phonenumber="+989034488755"
+        )
+        refresh = RefreshToken.for_user(self.user)
+        self.access_token = str(refresh.access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
+
+        self.product = Product.objects.create(
+            category="sangak",
+            name="Commented Bread",
+            price=Decimal("70.00"),
+            description="Tasty bread",
+            stock=20,
+            box_type=1,
+            box_color="Green",
+            color="Tan",
+            discount=Decimal("7.5"),
+            average_rate=4.0,
+        )
+
+        self.comment_url = f"/user/comment/product/{self.product.id}"
+        self.comments_list_url = f"/product/comments/{self.product.id}/"
+
+    def test_create_comment_authenticated(self):
+        data = {
+            "comment": "Very fresh bread!",
+            "suggested": 3  # suggested
+        }
+        response = self.client.post(self.comment_url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ProductComment.objects.count(), 1)
+        self.assertEqual(ProductComment.objects.first().comment, "Very fresh bread!")
+
+    def test_create_comment_unauthenticated(self):
+        self.client.credentials()  # Remove auth header
+        data = {
+            "comment": "No auth comment",
+            "suggested": 2
+        }
+        response = self.client.post(self.comment_url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_comments(self):
+        ProductComment.objects.create(
+            product=self.product,
+            user=self.user,
+            comment="This is great!",
+            suggested=3
+        )
+        response = self.client.get(self.comments_list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["comment"], "This is great!")
+        self.assertEqual(response.data[0]["user_name"], self.user.username)
+
+    def test_comment_on_nonexistent_product(self):
+        invalid_id = self.product.id + 999
+        data = {"comment": "Trying with invalid product", "suggested": 1}
+        response = self.client.post(f"/user/comment/product/{invalid_id}", data)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_get_comments_nonexistent_product(self):
+        invalid_id = self.product.id + 999
+        response = self.client.get(f"/product/comments/{invalid_id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_comment_missing_fields(self):
+        data = {}  # empty payload
+        response = self.client.post(self.comment_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("errors", response.data)
+
+    def test_create_comment_invalid_suggested_value(self):
+        data = {
+            "comment": "Invalid suggestion",
+            "suggested": 99  # invalid choice
+        }
+        response = self.client.post(self.comment_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+    def test_serializer_without_context_fails_gracefully(self):
+        data = {"comment": "Test", "suggested": 1}
+        serializer = ProductCommentSerializer(data=data)
+        self.assertTrue(serializer.is_valid())  # valid fields
+        with self.assertRaises(serializers.ValidationError):  # should crash when saving
+            serializer.save()
+
+    def test_comment_response_without_rating(self):
+        ProductComment.objects.create(
+            product=self.product,
+            user=self.user,
+            comment="Comment without rating",
+            suggested=1
+        )
+        response = self.client.get(self.comments_list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["rating"], None)
+
+    def test_large_number_of_comments(self):
+        for i in range(100):
+            ProductComment.objects.create(
+                product=self.product,
+                user=self.user,
+                comment=f"Comment #{i}",
+                suggested=1
+            )
+        response = self.client.get(self.comments_list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 100)
+
+    def test_sql_injection_in_url(self):
+        malicious_id = "1; DROP TABLE users"  # invalid type
+        response = self.client.get(f"/product/comments/{malicious_id}/")
+        self.assertIn(response.status_code, [404, 400])
+
+    def test_sql_injection_in_comment_body(self):
+        data = {
+            "comment": "'; DROP TABLE product; --",
+            "suggested": 1
+        }
+        response = self.client.post(self.comment_url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+    def test_post_comment_with_long_text(self):
+        long_comment = "عالی " * 200 
+        response = self.client.post(self.comment_url, {
+            "comment": long_comment,
+            "suggested": ProductComment.SUGGESTED
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("comment", response.data["errors"])  # exceeds max_length
+
+    def test_post_comment_with_empty_comment(self):
+        response = self.client.post(self.comment_url, {
+            "comment": "",
+            "suggested": ProductComment.NO_INFO
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("comment", response.data["errors"])
+
+    def test_post_comment_with_invalid_suggested_value(self):
+        response = self.client.post(self.comment_url, {
+            "comment": "محصول خوبیه",
+            "suggested": 999  
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_get_comments_without_any_comment(self):
+        response = self.client.get(self.comments_list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_comment_and_rating_mapping(self):
+        ProductComment.objects.create(
+            comment="این نان بسیار خوشمزه بود",
+            product=self.product,
+            user=self.user,
+            suggested=ProductComment.SUGGESTED
+        )
+        Rate.objects.create(
+            product=self.product,
+            rated_by=self.user,
+            rate=4
+        )
+        response = self.client.get(self.comments_list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["rating"], 4)
+        self.assertEqual(response.data[0]["user_name"], self.user.username)
+        self.assertIn("posted_at", response.data[0])
