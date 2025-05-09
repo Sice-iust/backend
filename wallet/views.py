@@ -13,7 +13,7 @@ from drf_yasg import openapi
 
 class WalletView(APIView):
     serializer_class = UserWalletSerializer
-    permission_class = [IsAuthenticated]
+    permission_classes  = [IsAuthenticated]
 
     def get(self, request):
         user = request.user

@@ -6,11 +6,12 @@ from .models import *
 
 
 class WalletTransactionSerializer(serializers.ModelSerializer):
-    description = serializers.TextField(required=False, allow_blank=True)
     class Meta:
         model=WalletTransaction
         fields=['wallet','status','type','value','description']
-        
+        extra_kwargs = {
+            'description': {'required': False},
+        }
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['transaction_id'] = instance.transaction_id

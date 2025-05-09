@@ -3,5 +3,5 @@ from django.urls import path
 from .views import *
 
 urlpatterns = [
-    path("user/wallet/", WalletView.as_view()),
+    path("user/wallet/", WalletView.as_view(), name="wallet"),
 ]

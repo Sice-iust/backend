@@ -3,13 +3,12 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from decimal import Decimal
-from utils import create_short_uuid4
+from .utils import create_short_uuid4
+from .utils import TRANSACTION_ID_LENGTH
 
 User = get_user_model()
-TRANSACTION_ID_LENGTH = 12
-
 class UserWallet(models.Model):
-    user = models.ForeignKey(User, unique=True, on_delete=models.PROTECT, related_name="user_wallet")
+    user = models.ForeignKey(User, unique=True, on_delete=models.PROTECT, related_name="user_wallet", db_index=True)
     balance = models.DecimalField(default=0,max_digits=12,decimal_places=2)
     created_on = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -48,8 +47,8 @@ class WalletTransaction(models.Model):
         Credit = 1, 'Credit' 
         Debit = 2, 'Debit' 
 
-    wallet = models.ForeignKey(UserWallet, on_delete=models.PROTECT, related_name='wallet_transactions')
-    transaction_id = models.CharField(default=create_short_uuid4(TRANSACTION_ID_LENGTH), editable=False, unique=True)
+    wallet = models.ForeignKey(UserWallet, on_delete=models.PROTECT, related_name='wallet_transactions',db_index=True)
+    transaction_id = models.CharField(default=create_short_uuid4,max_length=TRANSACTION_ID_LENGTH, editable=False, unique=True)
     description = models.TextField(blank=True)
     status = models.PositiveSmallIntegerField(choices=Status.choices, default=Status.PENDING)
     type = models.PositiveSmallIntegerField(choices=Type.choices)
