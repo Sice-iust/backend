@@ -121,6 +121,8 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "total_price",
             "status",
             "profit",
+            "discription",
+            "delivered_at",
         ]
 
 
