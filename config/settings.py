@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "django_extensions",
     "users",
     "phonenumber_field",
     "rest_framework_simplejwt",
@@ -146,3 +147,8 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True}
+
+GRAPH_MODELS ={
+'all_applications': True,
+'graph_models': True,
+}
