@@ -74,7 +74,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class Otp(models.Model):
-    phonenumber = PhoneNumberField(region="IR")  
+    phonenumber = PhoneNumberField(region="IR",db_index=True)  
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(
         default=timezone.now
