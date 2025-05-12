@@ -13,18 +13,6 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 
-
-class ProductView(APIView):
-    serializer_class = ProductSerializer
-
-    def get(self, request):
-        objects = Product.objects.all()
-        serializer = self.serializer_class(
-            objects, many=True, context={"request": request}
-        )
-        return Response({"context": serializer.data})
-
-
 class AdminProductView(APIView):
     serializer_class = ProductSerializer
     parser_classes = [MultiPartParser, FormParser]
@@ -105,8 +93,6 @@ class SingleRateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request,id):
-        # if not request.user.is_authenticated:
-        #     return Response("You are not logged in.", status=401)
 
         try:
             product = Product.objects.get(id=id)
@@ -130,8 +116,7 @@ class SingleRateView(APIView):
             return Response("You have rated the product.", status=201)
         
     def put(self, request, id):
-        # if not request.user.is_authenticated:
-        #     return Response("You are not logged in.", status=401)
+        
         try:
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
@@ -152,8 +137,6 @@ class SingleRateView(APIView):
         return Response("You have updated your rating for the product.", status=200)
     
     def delete(self, request, id):
-        # if not request.user.is_authenticated:
-        #     return Response("You are not logged in.", status=401)
         try:
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
@@ -213,8 +196,6 @@ class ProductCommentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request,id):
-        # if not request.user.is_authenticated:
-        #     return Response("You are not logged in.", status=status.HTTP_401_UNAUTHORIZED)
         try:
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
