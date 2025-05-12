@@ -76,7 +76,7 @@ class SubmitReserveView(APIView):
             location=Locations.objects.get(id=serializer.validated_data['location_id'])
             delivery=DeliverSlots.object.get(id=serializer.validated_data['delivery_id'])
             if delivery.current_fill >= delivery.max_orders:
-                        return Response({"error": "This delivery slot is full."}, status=400)
+                return Response({"error": "This delivery slot is full."}, status=400)
             discount_text = data.get("discount_text", "").strip()
             discount = (
                 DiscountCart.objects.filter(text=discount_text).first()
@@ -109,5 +109,6 @@ class SubmitReserveView(APIView):
                 )
 
                 item.delete()
+            delivery.current_fill += 1
+            delivery.save()
         return Response("something went wrong.")
-
