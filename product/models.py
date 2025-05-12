@@ -76,7 +76,7 @@ class ProductComment(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="comments" )
     posted_at = models.DateTimeField(auto_now_add=True)
-    # suggested = models.IntegerField(choices=SUGGEST_STATUS,default=NO_INFO)
+    suggested = models.IntegerField(choices=SUGGEST_STATUS,default=NO_INFO)
     # class Meta:
     #     order_with_respect_to = 'product'
 # class Discount(models.Model):
