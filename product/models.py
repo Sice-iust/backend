@@ -11,15 +11,15 @@ class Product(models.Model):
         (6, "Box of 6"),
         (8, "Box of 8"),
     ]
-    category = models.CharField(max_length=255)
+    category = models.CharField(max_length=255, db_index=True)
     name = models.CharField(max_length=250, blank=False)
     price = models.DecimalField(
         max_digits=10, decimal_places=2
     )  
     description = models.TextField(blank=True)  
     photo = models.ImageField(upload_to="product") 
-    average_rate = models.FloatField(default=0)
-    discount = models.PositiveIntegerField(default=0)
+    average_rate = models.FloatField(default=0,db_index=True)
+    discount = models.PositiveIntegerField(default=0,db_index=True)
     stock = models.PositiveIntegerField(default=0)
     box_type = models.PositiveIntegerField(choices=BOX_CHOICES,default=1)
     box_color=models.TextField(default='red')
@@ -76,9 +76,9 @@ class ProductComment(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="comments" )
     posted_at = models.DateTimeField(auto_now_add=True)
-    suggested = models.IntegerField(choices=SUGGEST_STATUS,default=NO_INFO)
-    class Meta:
-        order_with_respect_to = 'product'
+    # suggested = models.IntegerField(choices=SUGGEST_STATUS,default=NO_INFO)
+    # class Meta:
+    #     order_with_respect_to = 'product'
 # class Discount(models.Model):
 #     product = models.ForeignKey(
 #         Product, on_delete=models.CASCADE, related_name="discounts"
