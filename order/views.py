@@ -116,13 +116,11 @@ class SubmitOrderView(APIView):
         if payment_status!='paid':
             return Response({"error": "You Should Payment First."}, status=400)
         location_data = data["location"]
-        location, _ = Location.objects.get_or_create(
-            user=user,
-            address=location_data["address"],
-            name=location_data["name"],
-            reciver=location_data["reciver"],
-            phonenumber=location_data["phonenumber"],
-        )
+        try:
+            location= Location.objects.get(id=location_data)
+        except Location.DoesNotExist:
+            return Response({"error": "Invalid location selected."}, status=400)
+
         try:
             delivery = DeliverySlots.objects.get(id=data["deliver_time"])
         except DeliverySlots.DoesNotExist:
