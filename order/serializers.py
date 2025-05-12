@@ -64,49 +64,7 @@ class FinalizeOrderSerializer(serializers.Serializer):
     profit = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
     discount_text = serializers.CharField(required=False, allow_blank=True)
-
-
-    def create(self, validated_data):
-        location_data = validated_data.pop("location")
-        user = self.context["request"].user
-
-        location, _ = Location.objects.get_or_create(
-            user=user,
-            address=location_data["address"],
-            name=location_data["name"],
-            reciver=location_data["reciver"],
-            phonenumber=location_data["phonenumber"],
-        )
-
-
-        try:
-            delivery = DeliverySlots.objects.get(id=validated_data["deliver_time"])
-        except DeliverySlot.DoesNotExist:
-            raise APIException("Invalid delivery slot selected.")
-
-        if delivery.current_fill >= delivery.max_orders:
-            raise APIException("This delivery slot is full.")
-
-        discount_text = validated_data.get("discount_text", "").strip()
-        discount = None
-        if discount_text:
-            discount = DiscountCart.objects.filter(text=discount_text).first()
-
-        order = Order.objects.create(
-            location=location,
-            user=user,
-            delivery=delivery,
-            discription=validated_data.get("discription", ""),
-            total_price=validated_data["total_price"],
-            profit=validated_data["profit"],
-            status=1,
-            discount=discount,
-        )
-
-        delivery.current_fill += 1
-        delivery.save()
-
-        return order
+    payment_status = serializers.CharField(default="unpaid")
 
 
 class MyOrderSerializer(serializers.ModelSerializer):

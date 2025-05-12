@@ -219,10 +219,11 @@ class ProductCommentView(APIView):
             raise Http404("Product not found")
         
         serializer = self.serializer_class(
-            data=request.data, context={'include_user': False, 'include_product':False}
+            data=request.data,
+            context={'user': request.user, 'product': product}
         )
         if serializer.is_valid():
-            serializer.save(product=product, user=request.user)
+            serializer.save()
             return Response("You have commented the product.", status=201)
         return Response(
             {"message": "Something went wrong", "errors": serializer.errors}, status=400

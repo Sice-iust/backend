@@ -95,6 +95,8 @@ class SingleDiscountCartView(APIView):
         discount.delete()
         return Response({"message": "Discount deleted successfully"}, status=200)
 
+from django.db import transaction
+
 
 class SubmitOrderView(APIView):
     permission_classes = [IsAuthenticated]
@@ -106,38 +108,76 @@ class SubmitOrderView(APIView):
             data=request.data, context={"request": request}
         )
 
-        if serializer.is_valid():
-            data = serializer.validated_data
-            discount = DiscountCart.objects.filter(
-                text=data.get("discount_text")
-            ).first()
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
 
-            cart_items = CartItem.objects.filter(user=user).all()
+        data = serializer.validated_data
+        payment_status = data["payment_status"]
+        if payment_status!='paid':
+            return Response({"error": "You Should Payment First."}, status=400)
+        location_data = data["location"]
+        location, _ = Location.objects.get_or_create(
+            user=user,
+            address=location_data["address"],
+            name=location_data["name"],
+            reciver=location_data["reciver"],
+            phonenumber=location_data["phonenumber"],
+        )
+        try:
+            delivery = DeliverySlots.objects.get(id=data["deliver_time"])
+        except DeliverySlots.DoesNotExist:
+            return Response({"error": "Invalid delivery slot selected."}, status=400)
 
-            for item in cart_items:
-                if not self._has_sufficient_stock(item):
-                    return Response(
-                        {"error": f"Not enough stock for {item.product.name}."},
-                        status=400,
-                    )
+        if delivery.current_fill >= delivery.max_orders:
+            return Response({"error": "This delivery slot is full."}, status=400)
+        discount_text = data.get("discount_text", "").strip()
+        discount = (
+            DiscountCart.objects.filter(text=discount_text).first()
+            if discount_text
+            else None
+        )
 
-            order = serializer.save()
-
-            for item in cart_items:
-                p_dis = item.product.discount
-                OrderItem.objects.create(
-                    product=item.product,
-                    order=order,
-                    quantity=item.quantity,
-                    product_discount=p_dis,
+        cart_items = CartItem.objects.filter(user=user).all()
+        for item in cart_items:
+            if not self._has_sufficient_stock(item):
+                return Response(
+                    {"error": f"Not enough stock for {item.product.name}."},
+                    status=400,
                 )
-                item.product.stock -= item.quantity
-                item.product.save()
-                item.delete()
 
-            return Response({"message": "Order submitted successfully!"})
+        try:
+            with transaction.atomic():
+                order = Order.objects.create(
+                    location=location,
+                    user=user,
+                    delivery=delivery,
+                    discription=data.get("discription", ""),
+                    total_price=data["total_price"],
+                    profit=data["profit"],
+                    status=1,
+                    discount=discount,
+                )
 
-        return Response(serializer.errors, status=400)
+                for item in cart_items:
+                    OrderItem.objects.create(
+                        product=item.product,
+                        order=order,
+                        quantity=item.quantity,
+                        product_discount=item.product.discount,
+                    )
+                    item.product.stock -= item.quantity
+                    item.product.save()
+                    item.delete()
+
+                delivery.current_fill += 1
+                delivery.save()
+
+        except Exception as e:
+            if "order" in locals():
+                order.delete()
+            return Response({"error": str(e)}, status=500)
+
+        return Response({"message": "Order submitted successfully!"}, status=200)
 
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
