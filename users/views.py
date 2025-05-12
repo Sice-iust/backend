@@ -126,11 +126,9 @@ class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class=ProfileSerializer
     def get(self, request):
-        # if request.user.is_authenticated:
         user = request.user
         serializer = self.serializer_class(user, context={"request": request})
         return Response(serializer.data)
-        # return Response({"message":"no login"})
 
 class UpdateProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -227,6 +225,7 @@ class SingleLocationView(APIView):
 
                 serializer.save(is_choose=True)
             else:
+                # ?
                 serializer.save()
             return Response(serializer.data)
 
