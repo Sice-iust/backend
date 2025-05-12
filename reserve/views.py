@@ -13,13 +13,15 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from order.models import Order
 from rest_framework import status
 from users.models import Location
+
+
 class ReservationView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = ReservationSerializer
+    serializer_class = ReservationProductSerializer
 
     def get(self, request):
         user = request.user
-        reservs = BreadReservation.objects.filter(user=user).all()
+        reservs = ReserveItem.objects.filter(user=user).all()
         serializer = self.serializer_class(reservs, many=True)
         total_price_all = 0
         for item in reservs:
@@ -37,27 +39,10 @@ class ReservationView(APIView):
             }
         )
 
-    def post(self, request):
-        user = request.user
-        data = request.data.copy()
-        data["user"] = user.id  
-
-        serializer = self.serializer_class(data=data, context={"request": request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {
-                    "message": "Reservation created successfully",
-                    "reservation": serializer.data,
-                },
-                status=status.HTTP_201_CREATED,
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class AdminReservationView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = ReservationSerializer
+    serializer_class = ReservationProductSerializer
 
     def get(self, request):
         if not request.user.groups.filter(name="Admin").exists():
@@ -81,61 +66,48 @@ class AdminReservationView(APIView):
             }
         )
 
-
-class OrderReservesView(APIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = OrderReservationSerializer
-
-    def post(self, request):
-        user = request.user
-        serializer = self.serializer_class(data=request.data)
-
+class SubmitReserveView(APIView):
+    permission_classes=[IsAuthenticated]
+    serializer_class=ReservationSerializer
+    def post(self,request):
+        user=request.user
+        serializer=self.serializer_class(data=request.data)
         if serializer.is_valid():
-            if serializer.validated_data["is_paid"] is False:
-                return Response({"message": "You should pay"}, status=400)
-
-            reservations = BreadReservation.objects.filter(user=user, active=True)
-
-            if not reservations.exists():
-                return Response(
-                    {"message": "No active reservations found."}, status=404
-                )
-
-            total_price = 0
-            for res in reservations:
-                base_price = res.product.price
-                discount = res.product.discount or 0
-                discounted_price = Decimal(base_price * (1 - discount / 100))
-                total_price += discounted_price * res.total_items
-
-            location = reservations.first().location or "Unknown"
-            delivery_time = reservations.first().next_delivery_date()
-
-            order = Order.objects.create(
-                user=user,
+            location=Locations.objects.get(id=serializer.validated_data['location_id'])
+            delivery=DeliverSlots.object.get(id=serializer.validated_data['delivery_id'])
+            if delivery.current_fill >= delivery.max_orders:
+                        return Response({"error": "This delivery slot is full."}, status=400)
+            discount_text = data.get("discount_text", "").strip()
+            discount = (
+                DiscountCart.objects.filter(text=discount_text).first()
+                if discount_text
+                else None
+            )
+            reserve = BreadReservation.objects.create(
                 location=location,
-                delivery_time=delivery_time,
-                total_price=round(total_price, 2),
+                delivery=delivery,
+                user=user,
+                is_active=False,
+                auto_pay=False,
+                period=serializer.validated_data['period']
             )
+            cart_items = CartItem.objects.filter(user=user).all()
 
-            for res in reservations:
-                OrderItem.objects.create(
-                    order=order,
-                    product=res.product,
-                    quantity=res.quantity,
-                    box_type=res.box_type,
-                    product_discount=res.product.discount or 0,
+            for item in cart_items:
+                if not self._has_sufficient_stock(item):
+                    return Response(
+                        {"error": f"Not enough stock for {item.product.name}."},
+                        status=400,
+                    )
+
+            for item in cart_items:
+                p_dis = item.product.discount
+                ReserveItem.objects.create(
+                    product=item.product,
+                    reserve=reserve,
+                    quantity=item.quantity,
                 )
 
-            reservations.update(active=False)
+                item.delete()
+        return Response("something went wrong.")
 
-            return Response(
-                {
-                    "message": "Order created from reservations successfully",
-                    "order_id": order.id,
-                    "total_price": order.total_price,
-                },
-                status=201,
-            )
-
-        return Response(serializer.errors, status=400)

@@ -19,16 +19,11 @@ class BreadReservation(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="bread_reservations"
     )
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
     period = models.CharField(max_length=10, choices=PERIOD_CHOICES)
     delivery=models.ForeignKey(DeliverySlots,on_delete=models.PROTECT, null=True, blank=True)
     active = models.BooleanField(default=True)
     auto_pay = models.BooleanField(default=False)
     location=models.ForeignKey(Location,on_delete=models.SET_NULL, null=True, blank=True)
-
-    class Meta:
-        unique_together = ("user", "product", "period")
 
     def __str__(self):
         return f"{self.user.phonenumber} reserved {self.quantity} x ({self.period})"
@@ -46,3 +41,9 @@ class BreadReservation(models.Model):
         elif self.period == "monthly":
             return base_date + timedelta(days=30)
         return None
+
+
+class ReserveItem(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    reserve = models.ForeignKey(BreadReservation,on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(default=1)
