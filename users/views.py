@@ -123,14 +123,12 @@ class SignUpVerifyOTPView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class=ProfileSerializer
     def get(self, request):
-        if request.user.is_authenticated:
-            user = request.user
-            seria = self.serializer_class(user, context={"request": request})
-            return Response(seria.data)
-        return Response({"message":"no login"})
+        user = request.user
+        serializer = self.serializer_class(user, context={"request": request})
+        return Response(serializer.data)
 
 class UpdateProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -227,6 +225,7 @@ class SingleLocationView(APIView):
 
                 serializer.save(is_choose=True)
             else:
+                # ?
                 serializer.save()
             return Response(serializer.data)
 

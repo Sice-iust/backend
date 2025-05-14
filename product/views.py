@@ -13,17 +13,6 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 
-class ProductView(APIView):
-    serializer_class = ProductSerializer
-
-    def get(self, request):
-        objects = Product.objects.all()
-        serializer = self.serializer_class(
-            objects, many=True, context={"request": request}
-        )
-        return Response({"context": serializer.data})
-
-
 class AdminProductView(APIView):
     serializer_class = ProductSerializer
     parser_classes = [MultiPartParser, FormParser]
@@ -92,7 +81,7 @@ class AdminSingleProductView(APIView):
 
 class RateView(APIView):
     serializer_class = RateSerializer
-
+    # ?
     def get(self, request):
         objects = Rate.objects.all()
         serializer = self.serializer_class(objects, many=True)
@@ -101,10 +90,9 @@ class RateView(APIView):
 
 class SingleRateView(APIView):
     serializer_class = RateSerializer
-    
+    permission_classes = [IsAuthenticated]
+
     def post(self, request,id):
-        if not request.user.is_authenticated:
-            return Response("You are not logged in.", status=401)
 
         try:
             product = Product.objects.get(id=id)
@@ -128,8 +116,7 @@ class SingleRateView(APIView):
             return Response("You have rated the product.", status=201)
         
     def put(self, request, id):
-        if not request.user.is_authenticated:
-            return Response("You are not logged in.", status=401)
+        
         try:
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
@@ -150,8 +137,6 @@ class SingleRateView(APIView):
         return Response("You have updated your rating for the product.", status=200)
     
     def delete(self, request, id):
-        if not request.user.is_authenticated:
-            return Response("You are not logged in.", status=401)
         try:
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
@@ -199,20 +184,18 @@ class AllProductView(APIView):
     serializer_class = ProductSerializer
 
     def get(self, request):
-        best_product = Product.objects.all().order_by(
-            "-name"
-        )
+        all_product = Product.objects.all()
         serializer = self.serializer_class(
-            best_product, many=True, context={"request": request}
+            all_product, many=True, context={"request": request}
         ).data
 
         return Response(serializer)
 
 class ProductCommentView(APIView):
     serializer_class = ProductCommentSerializer
+    permission_classes = [IsAuthenticated]
+
     def post(self, request,id):
-        if not request.user.is_authenticated:
-            return Response("You are not logged in.", status=status.HTTP_401_UNAUTHORIZED)
         try:
             product = Product.objects.get(id=id)
         except Product.DoesNotExist:
@@ -236,17 +219,22 @@ class SingleProductCommentsView(APIView):
         except Product.DoesNotExist:
             raise Http404("Product not found")
         comments = product.comments.select_related('user').all()
-        rates = product.ratings.all()
-        response_data = []
-        for comment in comments:
-            rating = rates.filter(product=product, rated_by=comment.user).first()
-            response_data.append({
-                "user_name": comment.user.username,
-                "comment": comment.comment,
-                "suggested": comment.suggested,
-                "posted_at": comment.posted_at,
-                "rating": rating.rate if rating else None
-            })
+        ratings = product.ratings.select_related('rated_by').all()
+
+        rating_map = {
+            (rating.rated_by): rating.rate
+            for rating in ratings
+        }
+
+        response_data = [
+        {
+            "user_name": comment.user.username,
+            "comment": comment.comment,
+            "suggested":comment.suggested,
+            "posted_at": comment.posted_at,
+            "rating": rating_map.get(comment.user_id),
+        } for comment in comments
+        ]
         return Response(response_data)
 
 class CategoryView(APIView):
