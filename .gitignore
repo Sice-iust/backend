@@ -185,3 +185,4 @@ cython_debug/
 
 #other config folders
 dev/*
+media/*
