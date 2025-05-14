@@ -18,6 +18,7 @@ class ZarinpalPaymentRequestView(APIView):
         serializer = self.serializer_class(data=request.data)
         user = request.user
         merchant_id = settings.MERCHANT_ID
+        # Front first or Back
         callback_url = request.build_absolute_uri(reverse("payment-verify"))
 
         if serializer.is_valid():
@@ -34,6 +35,7 @@ class ZarinpalPaymentRequestView(APIView):
             }
 
             headers = {"accept": "application/json", "content-type": "application/json"}
+            # try catch
             response = requests.post(
                 "https://sandbox.zarinpal.com/pg/v4/payment/request.json",
                 json=data,
