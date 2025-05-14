@@ -115,7 +115,7 @@ class SubmitOrderView(APIView):
         payment_status = data["payment_status"]
         if payment_status!='paid':
             return Response({"error": "You Should Payment First."}, status=400)
-        location_data = data["location"]
+        location_data = data["location_id"]
         try:
             location= Location.objects.get(id=location_data)
         except Location.DoesNotExist:
