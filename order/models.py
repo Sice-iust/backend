@@ -47,6 +47,15 @@ class DeliverySlots(models.Model):
 
 
 class Order(models.Model):
+    PAYMENT_STATUSES = [
+        ("unpaid", "پرداخت نشده"),
+        ("paid", "پرداخت شده"),
+        ("pending", "در حال بررسی"),
+        ("failed", "ناموفق"),
+    ]
+    payment_status = models.CharField(
+        max_length=20, choices=PAYMENT_STATUSES, default="unpaid"
+    )
     location = models.ForeignKey(
         Location, on_delete=models.SET_NULL, null=True, blank=True
     )
