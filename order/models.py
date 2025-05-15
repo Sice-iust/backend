@@ -53,7 +53,7 @@ class Order(models.Model):
         ("pending", "در حال بررسی"),
         ("failed", "ناموفق"),
     ]
-    payment_status = models.CharField(
+    pay_status = models.CharField(
         max_length=20, choices=PAYMENT_STATUSES, default="unpaid"
     )
     location = models.ForeignKey(
@@ -70,7 +70,7 @@ class Order(models.Model):
         DiscountCart, on_delete=models.PROTECT, blank=True, null=True
     )
     delivered_at = models.DateTimeField(null=True, blank=True) 
-
+    ref_id=models.IntegerField(null=True,blank=True)
     def save(self, *args, **kwargs):
         if self.status == 4:
             if (
