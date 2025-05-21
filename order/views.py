@@ -15,6 +15,13 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import datetime
 from django.utils.timezone import now
+from django.db import transaction
+from payment.views import ZarinpalPayment
+from django.conf import settings
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework import status
 
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
@@ -95,8 +102,6 @@ class SingleDiscountCartView(APIView):
         discount.delete()
         return Response({"message": "Discount deleted successfully"}, status=200)
 
-from django.db import transaction
-
 
 class SubmitOrderView(APIView):
     permission_classes = [IsAuthenticated]
@@ -112,12 +117,10 @@ class SubmitOrderView(APIView):
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
-        payment_status = data["payment_status"]
-        if payment_status!='paid':
-            return Response({"error": "You Should Payment First."}, status=400)
+
         location_data = data["location_id"]
         try:
-            location= Location.objects.get(id=location_data)
+            location = Location.objects.get(id=location_data)
         except Location.DoesNotExist:
             return Response({"error": "Invalid location selected."}, status=400)
 
@@ -128,16 +131,16 @@ class SubmitOrderView(APIView):
 
         if delivery.current_fill >= delivery.max_orders:
             return Response({"error": "This delivery slot is full."}, status=400)
+
         discount_text = data.get("discount_text", "").strip()
         discount = (
             DiscountCart.objects.filter(text=discount_text).first()
             if discount_text
             else None
         )
-
         cart_items = CartItem.objects.filter(user=user).all()
         for item in cart_items:
-            if not self._has_sufficient_stock(item):
+            if item.product.stock < item.quantity:
                 return Response(
                     {"error": f"Not enough stock for {item.product.name}."},
                     status=400,
@@ -154,6 +157,7 @@ class SubmitOrderView(APIView):
                     profit=data["profit"],
                     status=1,
                     discount=discount,
+                    pay_status="pending",
                 )
 
                 for item in cart_items:
@@ -175,10 +179,82 @@ class SubmitOrderView(APIView):
                 order.delete()
             return Response({"error": str(e)}, status=500)
 
-        return Response({"message": "Order submitted successfully!"}, status=200)
+        zarinpal = ZarinpalPayment(callback_url=f"https://nanzi-amber.vercel.app/")
+        payment_response = zarinpal.request(
+            user=user,
+            amount=int(order.total_price),
+            description=f"Order #{order.id} payment",
+            merchant_id=settings.MERCHANT_ID,
+        )
+
+        if payment_response.status_code != status.HTTP_200_OK:
+            order.delete()
+            return payment_response
+
+        return Response(
+            {
+                "message": "Order created. Proceed to payment.",
+                "order_id": order.id,
+                "payment_url": payment_response.data.get("payment_url"),
+            },
+            status=200,
+        )
 
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
+
+
+class VerifyPaymentView(APIView):
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="Status", description="write status", required=True, type=str
+            ),
+        ]
+    )
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="Authority", description="write Authority", required=True, type=str
+            ),
+        ]
+    )
+    def get(self, request, order_id):
+        status_query = request.query_params.get("Status")
+        authority = request.query_params.get("Authority")
+        merchant_id = settings.MERCHANT_ID
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found."}, status=404)
+
+        zarinpal = ZarinpalPayment(callback_url=f"https://nanzi-amber.vercel.app/")
+
+        verify_response = zarinpal.verify(
+            status_query=status_query,
+            authority=authority,
+            merchant_id=merchant_id,
+            amount=int(order.total_price),
+        )
+
+        if verify_response.status_code != status.HTTP_200_OK:
+            order.pay_status = "failed"
+            order.save()
+            return verify_response
+
+        order.pay_status = "paid"
+        order.ref_id = verify_response.data.get("ref_id")
+        order.save()
+
+        return Response(
+            {
+                "message": "Payment successful and order updated.",
+                "order_id": order.id,
+                "ref_id": verify_response.data.get("ref_id"),
+            }
+        )
 
 
 class OrderView(APIView):
@@ -187,8 +263,10 @@ class OrderView(APIView):
 
     def get(self, request):
         user = request.user
-        current_orders = OrderItem.objects.filter(order__user=user, order__status__lt=4)
-        past_orders = OrderItem.objects.filter(order__user=user, order__status__gte=4)
+        current_orders = OrderItem.objects.filter(order__user=user, order__status__lt=4,order__pay_status='paid')
+        past_orders = OrderItem.objects.filter(
+            order__user=user, order__status__gte=4, order__pay_status="paid"
+        )
         now_serializer = self.serializer_class(
             current_orders, many=True, context={"request": request}
         ).data
@@ -231,6 +309,8 @@ class OrderInvoiceView(APIView):
     def get(self, request, id):
         user = request.user
         order = get_object_or_404(Order, id=id, user=user)
+        if order.pay_status!='paid':
+            return Response({"this is failed."})
         invoices = OrderItem.objects.filter(order=order)
         serializer = OrderInvoiceSerializer(
             invoices, many=True, context={"request": request}
