@@ -57,7 +57,7 @@ class DeliverySlotsByDaySerializer(serializers.Serializer):
 
 
 class FinalizeOrderSerializer(serializers.Serializer):
-    location_id=serializer.IntegerField(write_only=True)
+    location_id=serializers.IntegerField(write_only=True)
     deliver_time = serializers.IntegerField()
     discription = serializers.CharField(required=False, allow_blank=True)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)

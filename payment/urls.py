@@ -4,7 +4,7 @@ from .views import *
 
 urlpatterns = [
 
-    path('api/request/', ZarinpalPaymentRequestView.as_view(), name='payment-request'),
-    path('api/verify/', ZarinpalPaymentVerifyView.as_view(), name='payment-verify'),
+    # path('api/request/', ZarinpalPaymentRequestView.as_view(), name='payment-request'),
+    # path('api/verify/', ZarinpalPaymentVerifyView.as_view(), name='payment-verify'),
 
 ]
