@@ -47,6 +47,15 @@ class DeliverySlots(models.Model):
 
 
 class Order(models.Model):
+    PAYMENT_STATUSES = [
+        ("unpaid", "پرداخت نشده"),
+        ("paid", "پرداخت شده"),
+        ("pending", "در حال بررسی"),
+        ("failed", "ناموفق"),
+    ]
+    pay_status = models.CharField(
+        max_length=20, choices=PAYMENT_STATUSES, default="unpaid"
+    )
     location = models.ForeignKey(
         Location, on_delete=models.SET_NULL, null=True, blank=True
     )
@@ -61,7 +70,7 @@ class Order(models.Model):
         DiscountCart, on_delete=models.PROTECT, blank=True, null=True
     )
     delivered_at = models.DateTimeField(null=True, blank=True) 
-
+    ref_id=models.IntegerField(null=True,blank=True)
     def save(self, *args, **kwargs):
         if self.status == 4:
             if (

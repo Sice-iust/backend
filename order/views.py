@@ -15,6 +15,13 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import datetime
 from django.utils.timezone import now
+from django.db import transaction
+from payment.views import ZarinpalPayment
+from django.conf import settings
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework import status
 
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
@@ -106,41 +113,148 @@ class SubmitOrderView(APIView):
             data=request.data, context={"request": request}
         )
 
-        if serializer.is_valid():
-            data = serializer.validated_data
-            discount = DiscountCart.objects.filter(
-                text=data.get("discount_text")
-            ).first()
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
 
-            cart_items = CartItem.objects.filter(user=user).all()
+        data = serializer.validated_data
 
-            for item in cart_items:
-                if not self._has_sufficient_stock(item):
-                    return Response(
-                        {"error": f"Not enough stock for {item.product.name}."},
-                        status=400,
-                    )
+        location_data = data["location_id"]
+        try:
+            location = Location.objects.get(id=location_data)
+        except Location.DoesNotExist:
+            return Response({"error": "Invalid location selected."}, status=400)
 
-            order = serializer.save()
+        try:
+            delivery = DeliverySlots.objects.get(id=data["deliver_time"])
+        except DeliverySlots.DoesNotExist:
+            return Response({"error": "Invalid delivery slot selected."}, status=400)
 
-            for item in cart_items:
-                p_dis = item.product.discount
-                OrderItem.objects.create(
-                    product=item.product,
-                    order=order,
-                    quantity=item.quantity,
-                    product_discount=p_dis,
+        if delivery.current_fill >= delivery.max_orders:
+            return Response({"error": "This delivery slot is full."}, status=400)
+
+        discount_text = data.get("discount_text", "").strip()
+        discount = (
+            DiscountCart.objects.filter(text=discount_text).first()
+            if discount_text
+            else None
+        )
+        cart_items = CartItem.objects.filter(user=user).all()
+        for item in cart_items:
+            if item.product.stock < item.quantity:
+                return Response(
+                    {"error": f"Not enough stock for {item.product.name}."},
+                    status=400,
                 )
-                item.product.stock -= item.quantity
-                item.product.save()
-                item.delete()
 
-            return Response({"message": "Order submitted successfully!"})
+        try:
+            with transaction.atomic():
+                order = Order.objects.create(
+                    location=location,
+                    user=user,
+                    delivery=delivery,
+                    discription=data.get("discription", ""),
+                    total_price=data["total_price"],
+                    profit=data["profit"],
+                    status=1,
+                    discount=discount,
+                    pay_status="pending",
+                )
 
-        return Response(serializer.errors, status=400)
+                for item in cart_items:
+                    OrderItem.objects.create(
+                        product=item.product,
+                        order=order,
+                        quantity=item.quantity,
+                        product_discount=item.product.discount,
+                    )
+                    item.product.stock -= item.quantity
+                    item.product.save()
+                    item.delete()
+
+                delivery.current_fill += 1
+                delivery.save()
+
+        except Exception as e:
+            if "order" in locals():
+                order.delete()
+            return Response({"error": str(e)}, status=500)
+
+        zarinpal = ZarinpalPayment(callback_url=f"https://nanzi-amber.vercel.app/")
+        payment_response = zarinpal.request(
+            user=user,
+            amount=int(order.total_price),
+            description=f"Order #{order.id} payment",
+            merchant_id=settings.MERCHANT_ID,
+        )
+
+        if payment_response.status_code != status.HTTP_200_OK:
+            order.delete()
+            return payment_response
+
+        return Response(
+            {
+                "message": "Order created. Proceed to payment.",
+                "order_id": order.id,
+                "payment_url": payment_response.data.get("payment_url"),
+            },
+            status=200,
+        )
 
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
+
+
+class VerifyPaymentView(APIView):
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="Status", description="write status", required=True, type=str
+            ),
+        ]
+    )
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="Authority", description="write Authority", required=True, type=str
+            ),
+        ]
+    )
+    def get(self, request, order_id):
+        status_query = request.query_params.get("Status")
+        authority = request.query_params.get("Authority")
+        merchant_id = settings.MERCHANT_ID
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found."}, status=404)
+
+        zarinpal = ZarinpalPayment(callback_url=f"https://nanzi-amber.vercel.app/")
+
+        verify_response = zarinpal.verify(
+            status_query=status_query,
+            authority=authority,
+            merchant_id=merchant_id,
+            amount=int(order.total_price),
+        )
+
+        if verify_response.status_code != status.HTTP_200_OK:
+            order.pay_status = "failed"
+            order.save()
+            return verify_response
+
+        order.pay_status = "paid"
+        order.ref_id = verify_response.data.get("ref_id")
+        order.save()
+
+        return Response(
+            {
+                "message": "Payment successful and order updated.",
+                "order_id": order.id,
+                "ref_id": verify_response.data.get("ref_id"),
+            }
+        )
 
 
 class OrderView(APIView):
@@ -149,8 +263,10 @@ class OrderView(APIView):
 
     def get(self, request):
         user = request.user
-        current_orders = OrderItem.objects.filter(order__user=user, order__status__lt=4)
-        past_orders = OrderItem.objects.filter(order__user=user, order__status__gte=4)
+        current_orders = OrderItem.objects.filter(order__user=user, order__status__lt=4,order__pay_status='paid')
+        past_orders = OrderItem.objects.filter(
+            order__user=user, order__status__gte=4, order__pay_status="paid"
+        )
         now_serializer = self.serializer_class(
             current_orders, many=True, context={"request": request}
         ).data
@@ -193,6 +309,8 @@ class OrderInvoiceView(APIView):
     def get(self, request, id):
         user = request.user
         order = get_object_or_404(Order, id=id, user=user)
+        if order.pay_status!='paid':
+            return Response({"this is failed."})
         invoices = OrderItem.objects.filter(order=order)
         serializer = OrderInvoiceSerializer(
             invoices, many=True, context={"request": request}
