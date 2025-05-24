@@ -224,7 +224,7 @@ class ZarinpalVerifyView(APIView):
 
         if result.status_code == 200:
             order.pay_status = "paid"
-            order.status = 2
+            # order.status = 2
             order.save()
             return redirect("https://nanzi-amber.vercel.app/ProfilePage/OrdersPage")
         else:
