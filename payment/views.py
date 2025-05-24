@@ -28,6 +28,7 @@ class ZarinpalPayment(PaymentGateway):
         headers = {"accept": "application/json", "content-type": "application/json"}
 
         try:
+            print(self.request_url)
             response = requests.post(self.request_url, json=data, headers=headers)
             response.raise_for_status()  
         except requests.RequestException as e:
