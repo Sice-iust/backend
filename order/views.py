@@ -23,8 +23,6 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import status
 from payment.models import ZarinpalTransaction
-
-
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -45,7 +43,9 @@ class MyDiscountView(APIView):
             {
                 "expired": DiscountCartSerializer(expired_discounts, many=True).data,
                 "expiring_soon": DiscountCartSerializer(expiring_soon, many=True).data,
-                "active": DiscountCartSerializer(active_discounts, many=True).data,
+                "active": DiscountCartSerializer(
+                    active_discounts, many=True
+                ).data,
             }
         )
 
@@ -66,11 +66,11 @@ class AdminDiscountView(APIView):
 
         return Response({"discounts": serializer.data})
 
-    def post(self, request):
+    def post(self,request):
         admin_group = Group.objects.get(name="Admin")
         if not admin_group in request.user.groups.all():
             return Response({"message": "Permission denied"}, status=403)
-        serializer = self.serializer_class(data=request.data)
+        serializer=self.serializer_class(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response("you make a discount")
@@ -80,8 +80,7 @@ class AdminDiscountView(APIView):
 class SingleDiscountCartView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
-
-    def put(self, request, id):
+    def put(self,request,id):
         admin_group = Group.objects.get(name="Admin")
         if not admin_group in request.user.groups.all():
             return Response({"message": "Permission denied"}, status=403)
@@ -103,7 +102,6 @@ class SingleDiscountCartView(APIView):
         discount.delete()
         return Response({"message": "Discount deleted successfully"}, status=200)
 
-
 from django.http import HttpResponseRedirect
 
 
@@ -121,6 +119,8 @@ class SubmitOrderView(APIView):
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
+
+        # پیدا کردن location و delivery
         try:
             location = Location.objects.get(id=data["location_id"])
             delivery = DeliverySlots.objects.get(id=data["deliver_time"])
@@ -143,6 +143,7 @@ class SubmitOrderView(APIView):
                 return Response(
                     {"error": f"Not enough stock for {item.product.name}."}, status=400
                 )
+
 
         try:
             with transaction.atomic():
@@ -176,7 +177,9 @@ class SubmitOrderView(APIView):
                 order.delete()
             return Response({"error": str(e)}, status=500)
 
-        callback_url = f"https://nanziback.liara.run/api/payment/verify/?order_id={order.id}"
+        callback_url = (
+            f"http://127.0.0.1:8000/api/payment/verify/?order_id={order.id}"
+        )
 
         zarinpal = ZarinpalPayment(callback_url=callback_url)
         payment_response = zarinpal.request(
@@ -195,7 +198,6 @@ class SubmitOrderView(APIView):
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
 
-
 from django.shortcuts import redirect
 
 
@@ -211,7 +213,7 @@ class ZarinpalVerifyView(APIView):
         except (ZarinpalTransaction.DoesNotExist, Order.DoesNotExist):
             return redirect("https://nanzi-amber.vercel.app/")
 
-        zarinpal = ZarinpalPayment(callback_url="")
+        zarinpal = ZarinpalPayment(callback_url="")  
 
         result = zarinpal.verify(
             status_query=status_query,
@@ -238,9 +240,7 @@ class OrderView(APIView):
 
     def get(self, request):
         user = request.user
-        current_orders = OrderItem.objects.filter(
-            order__user=user, order__status__lt=4, order__pay_status="paid"
-        )
+        current_orders = OrderItem.objects.filter(order__user=user, order__status__lt=4,order__pay_status='paid')
         past_orders = OrderItem.objects.filter(
             order__user=user, order__status__gte=4, order__pay_status="paid"
         )
@@ -286,7 +286,7 @@ class OrderInvoiceView(APIView):
     def get(self, request, id):
         user = request.user
         order = get_object_or_404(Order, id=id, user=user)
-        if order.pay_status != "paid":
+        if order.pay_status!='paid':
             return Response({"this is failed."})
         invoices = OrderItem.objects.filter(order=order)
         serializer = OrderInvoiceSerializer(
@@ -305,20 +305,17 @@ class OrderInvoiceView(APIView):
             }
         )
 
-
 class DeliverSlotView(APIView):
     serializer_class = DeliverySlotsByDaySerializer
 
-    def group_slots_by_date(self, slots):
+    def group_slots_by_date(self,slots):
         from collections import defaultdict
 
         grouped = defaultdict(list)
         for slot in slots:
             grouped[slot.delivery_date].append(slot)
 
-        return [
-            {"delivery_date": date, "slots": group} for date, group in grouped.items()
-        ]
+        return [{"delivery_date": date, "slots": group} for date, group in grouped.items()]
 
     def get(self, request):
         current_datetime = now()

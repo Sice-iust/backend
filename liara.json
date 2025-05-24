@@ -7,7 +7,7 @@
     "disks": [
         {
             "name": "nanzidisk",
-            "mountTo": ""
+            "mountTo": "/app/media"
         }
     ]
 }

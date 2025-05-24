@@ -172,3 +172,17 @@ cython_debug/
 
 # Other zip files
 *.zip
+#Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.webp
+*.ico
+*.svg
+
+#other config folders
+dev/*
+media/*

@@ -21,7 +21,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from wallet.models import UserWallet
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -36,30 +36,24 @@ class SendOTPView(APIView):
             recent_otps = Otp.objects.filter(
                 phonenumber=phone, otp_created_at__gte=ten_minutes_ago
             )
-            if recent_otps.count() >= 3:
+            otp_count = recent_otps.count()
+            if otp_count >= 3:
                 return Response(
-                    {"message": "You can only request 3 OTPs every 10 minutes."},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    {"message": "You can only request 3 OTPs every 10 minutes."}
                 )
 
-            otp_code, error = send_otp_sms(phone)
-            if otp_code:
-                            
-                last_four = str(otp_code)[-4:]  
-                Otp.objects.create(phonenumber=phone, otp=last_four)
-                return Response(
-                    {
-                        "message": "OTP sent",
-                        "is_registered": bool(user),
-                    },
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                return Response(
-                    {"message": "Failed to send OTP", "error": error},
-                    status=status.HTTP_502_BAD_GATEWAY,
-                )
+            otp = Otp.objects.create(phonenumber=phone)
+            otp = otp.generate_otp()
 
+            send_otp_sms(phone, otp)
+            print(otp)
+            return Response(
+                {
+                    "message": "OTP sent",
+                    "is_registered": bool(user),
+                },
+                status=status.HTTP_200_OK,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -114,6 +108,7 @@ class SignUpVerifyOTPView(APIView):
             )
             Otp.objects.filter(phonenumber=phone).delete()
             user = User.objects.filter(phonenumber=phone).first()
+            UserWallet.objects.create(user=user)
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
@@ -129,14 +124,12 @@ class SignUpVerifyOTPView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class=ProfileSerializer
     def get(self, request):
-        if request.user.is_authenticated:
-            user = request.user
-            seria = self.serializer_class(user, context={"request": request})
-            return Response(seria.data)
-        return Response({"message":"no login"})
+        user = request.user
+        serializer = self.serializer_class(user, context={"request": request})
+        return Response(serializer.data)
 
 class UpdateProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -233,6 +226,7 @@ class SingleLocationView(APIView):
 
                 serializer.save(is_choose=True)
             else:
+                # ?
                 serializer.save()
             return Response(serializer.data)
 

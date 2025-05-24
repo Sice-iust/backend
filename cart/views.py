@@ -159,120 +159,92 @@ class HeaderView(APIView):
 
         return Response({"is_login": False})
 
-
 class DiscountedCartView(APIView):
     serializer_class = CartDiscountSerializer
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='text', description='Discount code text', required=True, type=str),
+            OpenApiParameter(
+                name="text", description="Discount code text", required=True, type=str
+            ),
         ]
     )
     def get(self, request):
         user = request.user
-        text = request.query_params.get("text")
-
-        if not text:
+        code = request.query_params.get("text")
+        if not code:
             return Response({"error": "Enter a Discount Code"}, status=400)
 
-        discount_cart = DiscountCart.objects.filter(user=user, text=text).first()
-
-        if not discount_cart:
+        cart = DeliveryCart.objects.filter(user=user).last()
+        discount = DiscountCart.objects.filter(user=user, text=code).first()
+        if not discount:
             return Response({"error": "This discount cart does not exist."}, status=404)
 
-        if discount_cart.expired_time and discount_cart.expired_time < timezone.now():
+        if discount.expired_time and discount.expired_time < timezone.now():
             return Response({"error": "Your discount cart is expired."}, status=400)
 
-        if discount_cart.max_use <= 0:
+        if discount.max_use <= 0:
             return Response(
                 {"error": "This discount cart has been used too many times."},
                 status=400,
             )
 
-        if discount_cart.first_time:
-            user_order_count = Order.objects.filter(user=user).count()
-            if user_order_count > 0:
-                return Response(
-                    {"error": "This discount is only for your first order."}, status=400
-                )
+        if discount.first_time and Order.objects.filter(user=user).exists():
+            return Response(
+                {"error": "This discount is only for your first order."}, status=400
+            )
 
         cart_items = CartItem.objects.filter(user=user)
+        if not cart_items.exists():
+            return Response({"error": "Your cart is empty."}, status=400)
 
-        if discount_cart.product:
+        if discount.product:
             product_ids = cart_items.values_list("product_id", flat=True)
-            if discount_cart.product.id not in product_ids:
+            if discount.product.id not in product_ids:
                 return Response(
                     {"error": "This discount is not for your products."}, status=400
                 )
-            if discount_cart.product.discount>10:
+            if discount.product.discount > 10:
                 return Response(
-                    {"error": "This Product Has Discount."}, status=400
+                    {"error": "This product already has a discount."}, status=400
                 )
 
-        discount_cart.max_use -= 1
-        discount_cart.save()
+        total_price = sum(item.product.price * item.quantity for item in cart_items)
+        total_discount = sum(
+            item.product.price * item.product.discount / 100 * item.quantity
+            for item in cart_items
+        )
+        total_actual = total_price - total_discount
 
-        total_price = 0
-        total_discount = 0
-
-        for item in cart_items:
-            item_price = item.product.price * item.quantity 
-            item_discount = (
-                (item.product.price * item.product.discount / 100)
-                * item.quantity
-                
+        if total_actual < discount.payment_without_discount:
+            return Response(
+                {"error": "This discount is not valid for your payment."}, status=400
             )
-            total_price += item_price
-            total_discount += item_discount
 
-        total_actual_price = total_price - total_discount
-        if total_actual_price<discount_cart.payment_without_discount:
-            return Response({"error":"This Discount is not for your payment."})
-
-        if total_actual_price > discount_cart.max_discount and discount_cart.max_discount>0:
-            final_price = total_actual_price - discount_cart.max_discount
-            if total_actual_price < 0:
-                total_actual_price = 0
-            shipping_fee = 0
-            jalali_day = jdatetime.datetime.now().strftime("%A")
-
-            if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
-                shipping_fee = 50000
-            elif total_price == 0:
-                shipping_fee = 0
-            else:
-                shipping_fee = 30000
-
-            serializer = self.serializer_class(
-                {
-                    "final_price": final_price,
-                    "discount": discount_cart.max_discount + total_discount,
-                    "final_with_shipping": final_price + shipping_fee,
-                }
-            )
-            return Response(serializer.data)
-
-        percentage_discount = (total_actual_price * discount_cart.percentage) / 100
-        final_price = total_actual_price - percentage_discount
-        total_actual_price = total_price - total_discount
-        if total_actual_price<0:
-            total_actual_price=0
-        shipping_fee = 0
-        jalali_day = jdatetime.datetime.now().strftime("%A")
-
-        if jalali_day in ["پنجشنبه", "جمعه"] and total_actual_price < 500000:
-            shipping_fee = 50000
-        elif total_price == 0:
-            shipping_fee = 0
+        if 0 < discount.max_discount < total_actual:
+            discount_amount = discount.max_discount
         else:
-            shipping_fee = 30000
+            discount_amount = total_actual * discount.percentage / 100
+
+        final_price = max(0, total_actual - discount_amount)
+
+        shipping_fee = 0
+        if (
+            cart
+            and cart.delivery.delivery_date >= timezone.now().date()
+            and cart.delivery.current_fill < cart.delivery.max_orders
+        ):
+            shipping_fee = cart.delivery.shipping_fee or 0
+
+        discount.max_use -= 1
+        discount.save()
 
         serializer = self.serializer_class(
             {
                 "final_price": final_price,
-                "discount": percentage_discount + total_discount,
-                "final_with_shipping":final_price+shipping_fee
+                "discount": discount_amount + total_discount,
+                "final_with_shipping": final_price + shipping_fee,
             }
         )
         return Response(serializer.data)
