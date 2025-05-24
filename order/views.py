@@ -144,7 +144,6 @@ class SubmitOrderView(APIView):
                     {"error": f"Not enough stock for {item.product.name}."}, status=400
                 )
 
-
         try:
             with transaction.atomic():
                 order = Order.objects.create(
@@ -176,10 +175,9 @@ class SubmitOrderView(APIView):
             if "order" in locals():
                 order.delete()
             return Response({"error": str(e)}, status=500)
-
-        callback_url = (
-            f"http://127.0.0.1:8000/api/payment/verify/?order_id={order.id}"
-        )
+        current_site = request.get_host()
+        scheme = 'https' if request.is_secure() else 'http'
+        callback_url = f"{request.scheme}://{request.get_host()}/api/payment/verify/?order_id={order.id}"
 
         zarinpal = ZarinpalPayment(callback_url=callback_url)
         payment_response = zarinpal.request(
@@ -193,7 +191,9 @@ class SubmitOrderView(APIView):
             order.delete()
             return payment_response
 
-        return HttpResponseRedirect(payment_response.data["payment_url"])
+        return Response(
+            {"payment_url": payment_response.data["payment_url"]}, status=200
+        )
 
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
