@@ -176,7 +176,7 @@ class SubmitOrderView(APIView):
                 order.delete()
             return Response({"error": str(e)}, status=500)
 
-        callback_url = f"http://127.0.0.1:8000/api/payment/verify/?order_id={order.id}"
+        callback_url = f"https://nanziback.liara.run/api/payment/verify/?order_id={order.id}"
 
         zarinpal = ZarinpalPayment(callback_url=callback_url)
         payment_response = zarinpal.request(
