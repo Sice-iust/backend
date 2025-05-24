@@ -22,7 +22,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import status
-
+from payment.models import ZarinpalTransaction
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -205,7 +205,7 @@ class SubmitOrderView(APIView):
 
 
 class VerifyPaymentView(APIView):
-
+    permission_classes = [IsAuthenticated]
     @extend_schema(
         parameters=[
             OpenApiParameter(
@@ -231,7 +231,14 @@ class VerifyPaymentView(APIView):
             return Response({"detail": "Order not found."}, status=404)
 
         zarinpal = ZarinpalPayment(callback_url=f"https://nanzi-amber.vercel.app/")
-
+        
+        try:
+            transaction = ZarinpalTransaction.objects.get(authority=authority)
+            if transaction.user != request.user:
+                return Response({"essage": "unauthorized"}, status=403)
+        except ZarinpalTransaction.DoesNotExist:
+            return Response({"detail": "Transaction not found."}, status=404)
+        
         verify_response = zarinpal.verify(
             status_query=status_query,
             authority=authority,
