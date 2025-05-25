@@ -12,7 +12,7 @@ User = get_user_model()
 class UserWallet(models.Model):
 
     user = models.ForeignKey(User, unique=True, on_delete=models.PROTECT, related_name="user_wallet", db_index=True)
-    balance = models.DecimalField(default=0,max_digits=12,decimal_places=2) # Change this later
+    balance = models.DecimalField(default=0,max_digits=12,decimal_places=2) 
     created_on = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
