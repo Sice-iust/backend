@@ -80,9 +80,9 @@ class SingleCartView(APIView):
                 return Response(
                     {"error": "You already have this product in your cart"}, status=400
                 )
-            if product.stock<quantity:
-                return Response({"error":"This Product is full."}, status=400
-                )
+            # if product.stock<quantity:
+            #     return Response({"error":"This Product is full."}, status=400
+            #     )
             new_cart = CartItem.objects.create(
                 user=user, product=product, quantity=quantity
             )
@@ -118,8 +118,8 @@ class SingleModifyCartView(APIView):
             )
         quen=cart.quantity
         if update_mode=='add':
-            if product.stock<=0:
-                return Response({"error":"This product is full."})
+            # if product.stock<=0:
+            #     return Response({"error":"This product is full."})
             cart.quantity += 1
             cart.save()
             return Response({"success": "Cart updated"}, status=200)

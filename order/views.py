@@ -119,8 +119,13 @@ class SubmitOrderView(APIView):
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
+        reciver=user.username
+        reciver_phone = user.phonenumber
+        if data.get("reciver")!="string":
+            reciver = data.get("reciver")
+        if data.get("reciver") != "string":
+            reciver = data.get("reciver_phone")
 
-        # پیدا کردن location و delivery
         try:
             location = Location.objects.get(id=data["location_id"])
             delivery = DeliverySlots.objects.get(id=data["deliver_time"])
@@ -156,8 +161,8 @@ class SubmitOrderView(APIView):
                     status=1,
                     discount=discount,
                     pay_status="pending",
-                    reciver=data.get("reciver",""),
-                    reciver_phone=data.get("reciver_phone",""),
+                    reciver=reciver,
+                    reciver_phone=reciver_phone,
                 )
 
                 for item in cart_items:
