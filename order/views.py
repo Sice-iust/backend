@@ -228,7 +228,7 @@ class ZarinpalVerifyView(APIView):
             order.pay_status = "paid"
             # order.status = 2
             order.save()
-            return redirect("https://nanzi-amber.vercel.app/ProfilePage/OrdersPage")
+            return redirect("https://nanzi-amber.vercel.app/ProfilePage/")
         else:
             order.pay_status = "failed"
             order.status = 0
