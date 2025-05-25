@@ -102,6 +102,8 @@ class SingleDiscountCartView(APIView):
         discount.delete()
         return Response({"message": "Discount deleted successfully"}, status=200)
 
+from django.http import HttpResponseRedirect
+
 
 class SubmitOrderView(APIView):
     permission_classes = [IsAuthenticated]
@@ -118,16 +120,12 @@ class SubmitOrderView(APIView):
 
         data = serializer.validated_data
 
-        location_data = data["location_id"]
+        # پیدا کردن location و delivery
         try:
-            location = Location.objects.get(id=location_data)
-        except Location.DoesNotExist:
-            return Response({"error": "Invalid location selected."}, status=400)
-
-        try:
+            location = Location.objects.get(id=data["location_id"])
             delivery = DeliverySlots.objects.get(id=data["deliver_time"])
-        except DeliverySlots.DoesNotExist:
-            return Response({"error": "Invalid delivery slot selected."}, status=400)
+        except (Location.DoesNotExist, DeliverySlots.DoesNotExist):
+            return Response({"error": "Invalid location or delivery slot."}, status=400)
 
         if delivery.current_fill >= delivery.max_orders:
             return Response({"error": "This delivery slot is full."}, status=400)
@@ -138,12 +136,12 @@ class SubmitOrderView(APIView):
             if discount_text
             else None
         )
-        cart_items = CartItem.objects.filter(user=user).all()
+
+        cart_items = CartItem.objects.filter(user=user)
         for item in cart_items:
             if item.product.stock < item.quantity:
                 return Response(
-                    {"error": f"Not enough stock for {item.product.name}."},
-                    status=400,
+                    {"error": f"Not enough stock for {item.product.name}."}, status=400
                 )
 
         try:
@@ -173,13 +171,15 @@ class SubmitOrderView(APIView):
 
                 delivery.current_fill += 1
                 delivery.save()
-
         except Exception as e:
             if "order" in locals():
                 order.delete()
             return Response({"error": str(e)}, status=500)
+        current_site = request.get_host()
+        scheme = 'https' if request.is_secure() else 'http'
+        callback_url = f"{request.scheme}://{request.get_host()}/api/payment/verify/?order_id={order.id}"
 
-        zarinpal = ZarinpalPayment(callback_url=f"https://nanzi-amber.vercel.app/")
+        zarinpal = ZarinpalPayment(callback_url=callback_url)
         payment_response = zarinpal.request(
             user=user,
             amount=int(order.total_price),
@@ -187,81 +187,51 @@ class SubmitOrderView(APIView):
             merchant_id=settings.MERCHANT_ID,
         )
 
-        if payment_response.status_code != status.HTTP_200_OK:
+        if payment_response.status_code != 200:
             order.delete()
             return payment_response
 
         return Response(
-            {
-                "message": "Order created. Proceed to payment.",
-                "order_id": order.id,
-                "payment_url": payment_response.data.get("payment_url"),
-            },
-            status=200,
+            {"payment_url": payment_response.data["payment_url"]}, status=200
         )
 
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
 
+from django.shortcuts import redirect
 
-class VerifyPaymentView(APIView):
-    permission_classes = [IsAuthenticated]
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name="Status", description="write status", required=True, type=str
-            ),
-        ]
-    )
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name="Authority", description="write Authority", required=True, type=str
-            ),
-        ]
-    )
-    def get(self, request, order_id):
-        status_query = request.query_params.get("Status")
-        authority = request.query_params.get("Authority")
-        merchant_id = settings.MERCHANT_ID
 
-        try:
-            order = Order.objects.get(id=order_id)
-        except Order.DoesNotExist:
-            return Response({"detail": "Order not found."}, status=404)
+class ZarinpalVerifyView(APIView):
+    def get(self, request):
+        authority = request.GET.get("Authority")
+        status_query = request.GET.get("Status")
+        order_id = request.GET.get("order_id")
 
-        zarinpal = ZarinpalPayment(callback_url=f"https://nanzi-amber.vercel.app/")
-        
         try:
             transaction = ZarinpalTransaction.objects.get(authority=authority)
-            if transaction.user != request.user:
-                return Response({"essage": "unauthorized"}, status=403)
-        except ZarinpalTransaction.DoesNotExist:
-            return Response({"detail": "Transaction not found."}, status=404)
-        
-        verify_response = zarinpal.verify(
+            order = Order.objects.get(id=order_id)
+        except (ZarinpalTransaction.DoesNotExist, Order.DoesNotExist):
+            return redirect("https://nanzi-amber.vercel.app/")
+
+        zarinpal = ZarinpalPayment(callback_url="")  
+
+        result = zarinpal.verify(
             status_query=status_query,
             authority=authority,
-            merchant_id=merchant_id,
-            amount=int(order.total_price),
+            merchant_id=settings.MERCHANT_ID,
+            amount=transaction.amount,
         )
 
-        if verify_response.status_code != status.HTTP_200_OK:
-            order.pay_status = "failed"
+        if result.status_code == 200:
+            order.pay_status = "paid"
+            # order.status = 2
             order.save()
-            return verify_response
-
-        order.pay_status = "paid"
-        order.ref_id = verify_response.data.get("ref_id")
-        order.save()
-
-        return Response(
-            {
-                "message": "Payment successful and order updated.",
-                "order_id": order.id,
-                "ref_id": verify_response.data.get("ref_id"),
-            }
-        )
+            return redirect("https://nanzi-amber.vercel.app/ProfilePage/OrdersPage")
+        else:
+            order.pay_status = "failed"
+            order.status = 0
+            order.save()
+            return redirect("https://nanzi-amber.vercel.app/")
 
 
 class OrderView(APIView):
