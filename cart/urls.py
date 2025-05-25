@@ -9,4 +9,6 @@ urlpatterns = [
     path("header/", HeaderView.as_view()),
     path("user/discountcart/", DiscountedCartView.as_view()),
     path("user/cart/quantity/", QuentityView.as_view()),
+    path("user/cart/delivery/", DeliveryView.as_view()),
+    path("user/cart/delivery/create/<int:delivery_id>/",CartDeliveryView.as_view()),
 ]

@@ -9,31 +9,38 @@ def format_phone_number(phone):
         return "0" + phone[3:] 
     return phone
 
+import logging
+import requests
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
 
 def send_otp_sms(phone_number, otp):
-    url = "https://gateway.ghasedak.me/rest/api/v1/WebService/SendOtpSMS"
-
-    payload = json.dumps(
-        {
-            "receptors": [
-                {
-                    "mobile": str(format_phone_number(phone_number)),
-                    "clientReferenceId": "1",
-                }
-            ],
-            "templateName": "nanzi",
-            "inputs": [{"param": "Code", "value": str(otp)}],
-            "udh": True,
-        }
-    )
-    headers = {
-        "Content-Type": "application/json",
-        "ApiKey": settings.API_KEY,
+    url = "https://sms.ferzz.ir/afg/send-message"
+    # message = f"به نانزی خوش آمدید\nکد تایید شما: {otp}"
+    payload = {
+        "phone": str(format_phone_number(phone_number)),
+        "code":otp,
+        "token": settings.API_KEY_FERZZ,
     }
 
-    response = requests.request("POST", url, headers=headers, data=payload)
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+    except requests.RequestException as e:
 
-    print(response.text)
+        logger.error(f"Request failed: {str(e)}")
+        return None, f"Connection error: {str(e)}"
+
+    if response.status_code == 200:
+        data = response.json()
+        otp_code = data.get("code")
+        return otp_code, None
+    else:
+
+        logger.error(f"Error Response: {response.status_code} - {response.text}")
+        return None, f"Status code {response.status_code}: {response.text}"
 
 
 def reverse_geocode(lat, lng):

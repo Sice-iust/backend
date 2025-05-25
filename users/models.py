@@ -74,7 +74,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class Otp(models.Model):
-    phonenumber = PhoneNumberField(region="IR")  
+    phonenumber = PhoneNumberField(region="IR",db_index=True)  
     otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(
         default=timezone.now
@@ -95,9 +95,14 @@ class Otp(models.Model):
 
 
 class Location(models.Model):
-    user=models.ForeignKey(User,on_delete=models.CASCADE)
-    name = models.CharField(max_length=255,null=False,blank=False)
-    address=models.TextField(null=False,blank=False)
-    detail=models.TextField(null=True,blank=True)
-    phonenumber = PhoneNumberField(region="IR",blank=True,null=True)
-    reciver=models.CharField(max_length=255,null=True,blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    address = models.TextField()
+    detail = models.TextField(null=True, blank=True)
+    home_plaque = models.IntegerField(null=True, blank=True)
+    home_unit = models.IntegerField(null=True, blank=True)
+    home_floor = models.IntegerField(null=True, blank=True)
+    is_choose = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.name} - {self.address}"

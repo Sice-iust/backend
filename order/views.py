@@ -12,8 +12,17 @@ from django.utils import timezone
 from datetime import timedelta
 from django.http import Http404
 from django.shortcuts import get_object_or_404
-
-
+from django.utils import timezone
+from datetime import datetime
+from django.utils.timezone import now
+from django.db import transaction
+from payment.views import ZarinpalPayment
+from django.conf import settings
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework import status
+from payment.models import ZarinpalTransaction
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -93,6 +102,8 @@ class SingleDiscountCartView(APIView):
         discount.delete()
         return Response({"message": "Discount deleted successfully"}, status=200)
 
+from django.http import HttpResponseRedirect
+
 
 class SubmitOrderView(APIView):
     permission_classes = [IsAuthenticated]
@@ -104,42 +115,125 @@ class SubmitOrderView(APIView):
             data=request.data, context={"request": request}
         )
 
-        if serializer.is_valid():
-            data = serializer.validated_data
-            discount = DiscountCart.objects.filter(
-                text=data.get("discount_text")
-            ).first()
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
 
-            cart_items = CartItem.objects.filter(user=user).all()
+        data = serializer.validated_data
 
-            for item in cart_items:
-                if not self._has_sufficient_stock(item):
-                    return Response(
-                        {"error": f"Not enough stock for {item.product.name}."},
-                        status=400,
-                    )
+        # پیدا کردن location و delivery
+        try:
+            location = Location.objects.get(id=data["location_id"])
+            delivery = DeliverySlots.objects.get(id=data["deliver_time"])
+        except (Location.DoesNotExist, DeliverySlots.DoesNotExist):
+            return Response({"error": "Invalid location or delivery slot."}, status=400)
 
-            # Call the fixed serializer save method
-            order = serializer.save()
+        if delivery.current_fill >= delivery.max_orders:
+            return Response({"error": "This delivery slot is full."}, status=400)
 
-            for item in cart_items:
-                p_dis = item.product.discount
-                OrderItem.objects.create(
-                    product=item.product,
-                    order=order,
-                    quantity=item.quantity,
-                    product_discount=p_dis,
+        discount_text = data.get("discount_text", "").strip()
+        discount = (
+            DiscountCart.objects.filter(text=discount_text).first()
+            if discount_text
+            else None
+        )
+
+        cart_items = CartItem.objects.filter(user=user)
+        for item in cart_items:
+            if item.product.stock < item.quantity:
+                return Response(
+                    {"error": f"Not enough stock for {item.product.name}."}, status=400
                 )
-                item.product.stock -= item.quantity
-                item.product.save()
-                item.delete()
 
-            return Response({"message": "Order submitted successfully!"})
+        try:
+            with transaction.atomic():
+                order = Order.objects.create(
+                    location=location,
+                    user=user,
+                    delivery=delivery,
+                    discription=data.get("discription", ""),
+                    total_price=data["total_price"],
+                    profit=data["profit"],
+                    status=1,
+                    discount=discount,
+                    pay_status="pending",
+                    reciver=data.get("reciver",""),
+                    reciver_phone=data.get("reciver_phone",""),
+                )
 
-        return Response(serializer.errors, status=400)
+                for item in cart_items:
+                    OrderItem.objects.create(
+                        product=item.product,
+                        order=order,
+                        quantity=item.quantity,
+                        product_discount=item.product.discount,
+                    )
+                    item.product.stock -= item.quantity
+                    item.product.save()
+                    item.delete()
+
+                delivery.current_fill += 1
+                delivery.save()
+        except Exception as e:
+            if "order" in locals():
+                order.delete()
+            return Response({"error": str(e)}, status=500)
+        current_site = request.get_host()
+        scheme = 'https' if request.is_secure() else 'http'
+        callback_url = f"{request.scheme}://{request.get_host()}/api/payment/verify/?order_id={order.id}"
+
+        zarinpal = ZarinpalPayment(callback_url=callback_url)
+        payment_response = zarinpal.request(
+            user=user,
+            amount=int(order.total_price),
+            description=f"Order #{order.id} payment",
+            merchant_id=settings.MERCHANT_ID,
+        )
+
+        if payment_response.status_code != 200:
+            order.delete()
+            return payment_response
+
+        return Response(
+            {"payment_url": payment_response.data["payment_url"]}, status=200
+        )
 
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
+
+from django.shortcuts import redirect
+
+
+class ZarinpalVerifyView(APIView):
+    def get(self, request):
+        authority = request.GET.get("Authority")
+        status_query = request.GET.get("Status")
+        order_id = request.GET.get("order_id")
+
+        try:
+            transaction = ZarinpalTransaction.objects.get(authority=authority)
+            order = Order.objects.get(id=order_id)
+        except (ZarinpalTransaction.DoesNotExist, Order.DoesNotExist):
+            return redirect("https://nanzi-amber.vercel.app/")
+
+        zarinpal = ZarinpalPayment(callback_url="")  
+
+        result = zarinpal.verify(
+            status_query=status_query,
+            authority=authority,
+            merchant_id=settings.MERCHANT_ID,
+            amount=transaction.amount,
+        )
+
+        if result.status_code == 200:
+            order.pay_status = "paid"
+            # order.status = 2
+            order.save()
+            return redirect("https://nanzi-amber.vercel.app/ProfilePage/OrdersPage")
+        else:
+            order.pay_status = "failed"
+            order.status = 0
+            order.save()
+            return redirect("https://nanzi-amber.vercel.app/")
 
 
 class OrderView(APIView):
@@ -148,8 +242,10 @@ class OrderView(APIView):
 
     def get(self, request):
         user = request.user
-        current_orders = OrderItem.objects.filter(order__user=user, order__status__lt=4)
-        past_orders = OrderItem.objects.filter(order__user=user, order__status__gte=4)
+        current_orders = OrderItem.objects.filter(order__user=user, order__status__lt=4,order__pay_status='paid')
+        past_orders = OrderItem.objects.filter(
+            order__user=user, order__status__gte=4, order__pay_status="paid"
+        )
         now_serializer = self.serializer_class(
             current_orders, many=True, context={"request": request}
         ).data
@@ -192,13 +288,15 @@ class OrderInvoiceView(APIView):
     def get(self, request, id):
         user = request.user
         order = get_object_or_404(Order, id=id, user=user)
+        if order.pay_status!='paid':
+            return Response({"this is failed."})
         invoices = OrderItem.objects.filter(order=order)
         serializer = OrderInvoiceSerializer(
             invoices, many=True, context={"request": request}
         )
         total_price = order.total_price or Decimal("0")
         discount = order.profit or Decimal("0")
-        shipping_fee = order.shipping_fee or Decimal("0")
+        shipping_fee = order.delivery.shipping_fee or Decimal("0")
 
         return Response(
             {
@@ -208,3 +306,84 @@ class OrderInvoiceView(APIView):
                 "items": serializer.data,
             }
         )
+
+class DeliverSlotView(APIView):
+    serializer_class = DeliverySlotsByDaySerializer
+
+    def group_slots_by_date(self,slots):
+        from collections import defaultdict
+
+        grouped = defaultdict(list)
+        for slot in slots:
+            grouped[slot.delivery_date].append(slot)
+
+        return [{"delivery_date": date, "slots": group} for date, group in grouped.items()]
+
+    def get(self, request):
+        current_datetime = now()
+        current_date = current_datetime.date()
+        current_time = current_datetime.time()
+
+        slots = DeliverySlots.objects.filter(
+            delivery_date__gt=current_date
+        ) | DeliverySlots.objects.filter(
+            delivery_date=current_date, start_time__gt=current_time
+        )
+
+        grouped_data = self.group_slots_by_date(slots)
+        serializer = DeliverySlotsByDaySerializer(grouped_data, many=True)
+        return Response(serializer.data)
+
+
+class AdminDeliverySlot(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeliverySlotSerializer
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def post(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class SingleAdminDeliverySlot(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DeliverySlotSerializer
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def put(self, request, pk):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        try:
+            slot = DeliverySlots.objects.get(pk=pk)
+        except DeliverySlots.DoesNotExist:
+            return Response({"message": "Slot not found"}, status=404)
+
+        serializer = self.serializer_class(slot, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    def delete(self, request, pk):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        try:
+            slot = DeliverySlots.objects.get(pk=pk)
+            slot.delete()
+            return Response({"message": "Slot deleted"})
+        except DeliverySlots.DoesNotExist:
+            return Response({"message": "Slot not found"}, status=404)

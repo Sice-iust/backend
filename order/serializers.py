@@ -9,6 +9,10 @@ from product.serializers import *
 from users.models import Location
 import secrets
 import string
+from rest_framework import serializers
+import pytz
+from django.utils import timezone
+from datetime import datetime
 
 
 User = get_user_model()
@@ -37,77 +41,51 @@ class LocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Location
-        fields = ["user", "address", "name", "reciver", "phonenumber"]
+        fields = ["user", "address", "name","home_floor","home_unit","home_plaque"]
+
+
+class DeliverySlotSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = DeliverySlots
+        fields = "__all__"
+
+
+class DeliverySlotsByDaySerializer(serializers.Serializer):
+    delivery_date = serializers.DateField()
+    slots = DeliverySlotSerializer(many=True)
 
 
 class FinalizeOrderSerializer(serializers.Serializer):
-    location = LocationSerializer()
-    deliver_time = serializers.DateTimeField()
+    location_id=serializers.IntegerField(write_only=True)
+    deliver_time = serializers.IntegerField()
     discription = serializers.CharField(required=False, allow_blank=True)
-    shipping_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     profit = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
     discount_text = serializers.CharField(required=False, allow_blank=True)
-
-
-    def create(self, validated_data):
-        location_data = validated_data.pop("location")
-        user = self.context["request"].user
-
-        location, created = Location.objects.get_or_create(
-            user=user,
-            address=location_data["address"],
-            name=location_data["name"],
-            reciver=location_data["reciver"],
-            phonenumber=location_data["phonenumber"],
-        )
-        discount_text = validated_data.get("discount_text", "")
-        discount = None
-        if discount_text:
-            discount = DiscountCart.objects.filter(text=discount_text).first()
-        order = Order.objects.create(
-            location=location,
-            user=user,
-            delivery_time=validated_data[
-                "deliver_time"
-            ],  
-            discription=validated_data.get("discription", ""),
-            total_price=validated_data["total_price"],
-            profit=validated_data["profit"],
-            status=1,  
-            shipping_fee=validated_data["shipping_fee"],
-            discount=discount, 
-        )
-
-        return order
+    payment_status = serializers.CharField(default="unpaid")
+    reciver = serializers.CharField()
+    reciver_phone = serializers.CharField()
 
 
 class MyOrderSerializer(serializers.ModelSerializer):
-    delivery_day = serializers.SerializerMethodField()
-    # user=UserSerializer()
-    delivery_clock = serializers.SerializerMethodField()
+    delivery=DeliverySlotSerializer()
     location = LocationSerializer()
     class Meta:
         model=Order
         fields = [
             "id",
             "location",
-            # "user",
-            "delivery_time",
-            "delivery_day",
-            "delivery_clock",
+            "delivery",
             "total_price",
             "status",
-            "shipping_fee",
             "profit",
+            "discription",
+            "delivered_at",
+            "reciver",
+            "reciver_phone",
         ]
-
-    def get_delivery_day(self, obj):
-        return obj.get_jalali_delivery_day()
-
-    def get_delivery_clock(self, obj):
-        return obj.get_jalali_delivery_time()
 
 
 class MyOrderItemSerializer(serializers.ModelSerializer):

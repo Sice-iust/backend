@@ -37,12 +37,30 @@ class DiscountCart(models.Model):
         return f"{self.text} - {self.percentage}% for {self.user.username}"
 
 
+class DeliverySlots(models.Model):
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    delivery_date = models.DateField()
+    max_orders = models.IntegerField()
+    current_fill = models.IntegerField()
+    shipping_fee=models.DecimalField(max_digits=10,decimal_places=2,default=0)
+
+
 class Order(models.Model):
+    PAYMENT_STATUSES = [
+        ("unpaid", "پرداخت نشده"),
+        ("paid", "پرداخت شده"),
+        ("pending", "در حال بررسی"),
+        ("failed", "ناموفق"),
+    ]
+    pay_status = models.CharField(
+        max_length=20, choices=PAYMENT_STATUSES, default="unpaid"
+    )
     location = models.ForeignKey(
         Location, on_delete=models.SET_NULL, null=True, blank=True
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    delivery_time = models.DateTimeField()
+    delivery = models.ForeignKey(DeliverySlots,on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
     discription = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -51,18 +69,23 @@ class Order(models.Model):
     discount = models.ForeignKey(
         DiscountCart, on_delete=models.PROTECT, blank=True, null=True
     )
-    shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0) 
-    
+    delivered_at = models.DateTimeField(null=True, blank=True) 
+    ref_id=models.IntegerField(null=True,blank=True)
+    reciver = models.CharField(max_length=255, null=True, blank=True)
+    reciver_phone = models.CharField(max_length=20, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.status == 4:
+            if (
+                not self.delivered_at or self.pk is None
+            ):  
+                self.delivered_at = timezone.now()
+        else:
+            self.delivered_at = None 
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"Order #{self.id} by {self.user.phonenumber}"
-
-    def get_jalali_delivery_day(self):
-        jalali = jdatetime.datetime.fromgregorian(datetime=self.delivery_time)
-        return jalali.strftime("%A %Y/%m/%d")
-
-    def get_jalali_delivery_time(self):
-        jalali = jdatetime.datetime.fromgregorian(datetime=self.delivery_time)
-        return jalali.strftime("%H:%M")
 
 
 class OrderItem(models.Model):

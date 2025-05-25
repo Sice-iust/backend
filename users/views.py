@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .utils import send_otp_sms, reverse_geocode
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from django.utils.timezone import now
 from datetime import timedelta, datetime
 import random
@@ -21,9 +21,12 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
+from wallet.models import UserWallet
+from django.shortcuts import get_object_or_404
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
+
     def post(self, request):
         serializer = SendOTPSerializer(data=request.data)
         if serializer.is_valid():
@@ -44,9 +47,9 @@ class SendOTPView(APIView):
             otp = otp.generate_otp()
 
             send_otp_sms(phone, otp)
+            print(otp)
             return Response(
                 {
-                
                     "message": "OTP sent",
                     "is_registered": bool(user),
                 },
@@ -106,6 +109,7 @@ class SignUpVerifyOTPView(APIView):
             )
             Otp.objects.filter(phonenumber=phone).delete()
             user = User.objects.filter(phonenumber=phone).first()
+            UserWallet.objects.create(user=user)
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
@@ -125,8 +129,8 @@ class ProfileView(APIView):
     serializer_class=ProfileSerializer
     def get(self, request):
         user = request.user
-        seria = self.serializer_class(user, context={"request": request})
-        return Response(seria.data)
+        serializer = self.serializer_class(user, context={"request": request})
+        return Response(serializer.data)
 
 class UpdateProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -146,12 +150,14 @@ class UpdateProfileView(APIView):
 
 class LogOutView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class=LogOutSerializer
+    serializer_class = LogOutSerializer
 
     def post(self, request):
-        refresh_token = self.serializer_class(data=request.data)
-        if not refresh_token:
-            return Response({"error": "Refresh token required."}, status=400)
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        refresh_token = serializer.validated_data["refresh_token"]
 
         try:
             token = RefreshToken(refresh_token)
@@ -180,17 +186,19 @@ class LocationView(APIView):
         user = request.user
 
         name = request.data.get("name")
-        reciver = request.data.get("reciver")
-        phonenumber = request.data.get("phonenumber")
         address=request.data.get('address')
-
+        home_floor = request.data.get("home_floor")
+        home_unit = request.data.get("home_unit")
+        home_plaque = request.data.get("home_plaque")
+        Location.objects.filter(user=user, is_choose=True).update(is_choose=False)
         location = Location.objects.create(
             user=user,
             name=name,
-            reciver=reciver,
-            phonenumber=phonenumber,
             address=address,
- 
+            home_plaque=home_plaque,
+            home_floor=home_floor,
+            home_unit=home_unit,
+            is_choose=True
         )
 
         return Response(LocationSerializer(location).data, status=201)
@@ -199,6 +207,14 @@ class LocationView(APIView):
 class SingleLocationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LocationSerializer
+
+    def get(self, request, id):
+        user = request.user
+        location = get_object_or_404(
+            Location, id=id, user=user
+        )  
+        serializer = LocationSerializer(location)
+        return Response(serializer.data)
 
     def put(self, request, id):
         user = request.user
@@ -212,8 +228,17 @@ class SingleLocationView(APIView):
 
         serializer = self.serializer_class(location, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            if request.data.get("is_choose") is not None or True:
+                Location.objects.filter(user=user).exclude(id=location.id).update(
+                    is_choose=False
+                )
+
+                serializer.save(is_choose=True)
+            else:
+                # ?
+                serializer.save()
             return Response(serializer.data)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, id):
@@ -267,3 +292,29 @@ class NeshanLocationView(APIView):
             return Response({"error": "Neshan API returned no data"}, status=500)
 
         return Response(data)
+
+
+class ChooseLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, id):
+        user = request.user
+        try:
+            location = Location.objects.get(id=id, user=user)
+        except Location.DoesNotExist:
+            return Response(
+                {"error": "Location not found or not owned by user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        Location.objects.filter(user=user).exclude(id=location.id).update(
+            is_choose=False
+        )
+
+        location.is_choose = True
+        location.save()
+
+        return Response(
+            {"success": "Location successfully chosen."},
+            status=status.HTTP_200_OK,
+        )

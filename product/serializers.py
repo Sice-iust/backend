@@ -12,7 +12,6 @@ class SubcategorySerializer(serializers.ModelSerializer):
         fields = ['subcategory']
 
 
-
 class ProductSerializer(serializers.ModelSerializer):
 
     photo = serializers.ImageField(write_only=True, required=False)
@@ -92,21 +91,27 @@ class ProductCartSerializer(serializers.ModelSerializer):
 
 
 class SummerizedProductCartSerializer(serializers.ModelSerializer):
-
+    photo = serializers.SerializerMethodField("get_image")
     class Meta:
         model = Product
         fields = [
             "id",
-            "name",
+            "photo", "name",
             "price",
             "discount",
             "stock",
             "box_type",
-            "box_color","color",
+            "box_color",
+            "color",
         ]
 
     def validate_price(self, value):
         return value if value is not None else 0
+
+    def get_image(self, obj):
+        if obj.photo and hasattr(obj.photo, "url"):
+            return self.context["request"].build_absolute_uri(obj.photo.url)
+        return None
 
 
 class ProductDiscountSerializer(serializers.ModelSerializer):
@@ -117,13 +122,16 @@ class ProductDiscountSerializer(serializers.ModelSerializer):
 class ProductCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductComment
-        fields = ['product','comment','user','suggested']
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not self.context.get('include_user'):
-            self.fields.pop('user')
-        if not self.context.get('include_product'):
-            self.fields.pop('product')
+        fields = ['comment','suggested']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context.get('user')
+        validated_data['product'] = self.context.get('product')
+
+        if not validated_data['user'] or not validated_data['product']:
+            raise serializers.ValidationError("User and product must be provided in context.")
+        return super().create(validated_data)
+    
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['user_name'] = instance.user.username

@@ -12,6 +12,8 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = os.getenv("SECRET_KEY")
 API_KEY=os.getenv("API_KEY")
 NESHAN_API = os.getenv("NESHAN_API")
+API_KEY_FERZZ = os.getenv("API_KEY_FERZZ")
+MERCHANT_ID = os.getenv("MERCHANT_ID")
 DEBUG = True
 
 ALLOWED_HOSTS = ["nanziback.liara.run",'127.0.0.1']
@@ -35,6 +37,8 @@ INSTALLED_APPS = [
     "cart",
     "order",
     "reserve",
+    "wallet",
+    "payment","ticket",
 ]
 
 MIDDLEWARE = [
@@ -52,7 +56,9 @@ DATABASES = {"default": dj_database_url.parse(os.getenv("DATABASE_URL"))}
 
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  
+    "http://localhost:3000",
+    "https://nanzi-amber.vercel.app",
+    "https://nanziback.liara.run"
 ]
 CORS_ALLOW_CREDENTIALS = True
 STATIC_URL = "/static/"
@@ -109,8 +115,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
-
+TIME_ZONE = "Asia/Tehran"
 USE_I18N = True
 
 USE_TZ = True
@@ -128,6 +133,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "EXCEPTION_HANDLER": "config.utils.custom_exception_handler",
 }
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
