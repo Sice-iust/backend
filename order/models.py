@@ -71,6 +71,9 @@ class Order(models.Model):
     )
     delivered_at = models.DateTimeField(null=True, blank=True) 
     ref_id=models.IntegerField(null=True,blank=True)
+    reciver = models.CharField(max_length=255, null=True, blank=True)
+    reciver_phone = models.CharField(max_length=20, null=True, blank=True)
+
     def save(self, *args, **kwargs):
         if self.status == 4:
             if (

@@ -185,19 +185,20 @@ class LocationView(APIView):
         user = request.user
 
         name = request.data.get("name")
-        reciver = request.data.get("reciver")
-        phonenumber = request.data.get("phonenumber")
         address=request.data.get('address')
+        home_floor = request.data.get("home_floor")
+        home_unit = request.data.get("home_unit")
+        home_plaque = request.data.get("home_plaque")
         Location.objects.filter(user=user, is_choose=True).update(is_choose=False)
         location = Location.objects.create(
             user=user,
             name=name,
-            reciver=reciver,
-            phonenumber=phonenumber,
             address=address,
+            home_plaque=home_plaque,
+            home_floor=home_floor,
+            home_unit=home_unit,
             is_choose=True
         )
-
 
         return Response(LocationSerializer(location).data, status=201)
 

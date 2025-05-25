@@ -156,6 +156,8 @@ class SubmitOrderView(APIView):
                     status=1,
                     discount=discount,
                     pay_status="pending",
+                    reciver=data.get("reciver",""),
+                    reciver_phone=data.get("reciver_phone",""),
                 )
 
                 for item in cart_items:
