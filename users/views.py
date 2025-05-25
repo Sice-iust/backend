@@ -22,6 +22,7 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from wallet.models import UserWallet
+from django.shortcuts import get_object_or_404
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -207,6 +208,13 @@ class SingleLocationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LocationSerializer
 
+    def get(self, request, id):
+        user = request.user
+        location = get_object_or_404(
+            Location, id=id, user=user
+        )  
+        serializer = LocationSerializer(location)
+        return Response(serializer.data)
 
     def put(self, request, id):
         user = request.user
