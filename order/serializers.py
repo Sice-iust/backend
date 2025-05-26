@@ -41,7 +41,7 @@ class LocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Location
-        fields = ["user", "address", "name", "reciver", "phonenumber"]
+        fields = ["user", "address", "name","home_floor","home_unit","home_plaque"]
 
 
 class DeliverySlotSerializer(serializers.ModelSerializer):
@@ -65,6 +65,8 @@ class FinalizeOrderSerializer(serializers.Serializer):
     total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
     discount_text = serializers.CharField(required=False, allow_blank=True)
     payment_status = serializers.CharField(default="unpaid")
+    reciver = serializers.CharField()
+    reciver_phone = serializers.CharField()
 
 
 class MyOrderSerializer(serializers.ModelSerializer):
@@ -81,6 +83,8 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "profit",
             "discription",
             "delivered_at",
+            "reciver",
+            "reciver_phone",
         ]
 
 

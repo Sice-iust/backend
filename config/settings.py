@@ -56,7 +56,9 @@ DATABASES = {"default": dj_database_url.parse(os.getenv("DATABASE_URL"))}
 
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  
+    "http://localhost:3000",
+    "https://nanzi-amber.vercel.app",
+    "https://nanziback.liara.run"
 ]
 CORS_ALLOW_CREDENTIALS = True
 STATIC_URL = "/static/"
