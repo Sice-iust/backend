@@ -447,3 +447,25 @@ class AdminCancleView(APIView):
             return Response({"message": "Order marked as admin-canceled successfully."})
 
         return Response(serializer.errors, status=400)
+
+class DeliveryStatusView(ApiView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = StatusSerializer
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def post(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            order = get_object_or_404(Order, id=data["order_id"])
+            order.status=data['status']
+            order.save()
+            return Response({"message": "Order marked successfully."})
+
+        return Response(serializer.errors, status=400)

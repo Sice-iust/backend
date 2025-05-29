@@ -171,3 +171,8 @@ class OrderInvoiceSerializer(serializers.ModelSerializer):
 class AdminCancelSerializer(serializers.Serializer):
     order_id = serializers.IntegerField()
     reason = serializers.CharField()
+
+
+class StatusSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+    status = serializers.IntegerField()
