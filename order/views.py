@@ -23,6 +23,9 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import status
 from payment.models import ZarinpalTransaction
+from django.db.models import Q
+
+
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -387,3 +390,60 @@ class SingleAdminDeliverySlot(APIView):
             return Response({"message": "Slot deleted"})
         except DeliverySlots.DoesNotExist:
             return Response({"message": "Slot not found"}, status=404)
+
+
+class AdminDeliveredOrder(APIView):
+    serializer_class = MyOrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def get(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        orders = Order.objects.filter(Q(status=4) | Q(is_admin_canceled=True))
+        serializer = self.serializer_class(orders, many=True)
+        return Response(serializer.data)
+
+class AdminProcessing(APIView):
+    serializer_class = MyOrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def get(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        orders = Order.objects.filter(status=1)
+        serializer = self.serializer_class(orders, many=True)
+        return Response(serializer.data)
+
+class AdminCancleView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminCancelSerializer
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def post(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            order = get_object_or_404(Order, id=data["order_id"])
+
+            order.is_admin_canceled = True
+            order.admin_reason = data["reason"]
+            order.save()
+
+            return Response({"message": "Order marked as admin-canceled successfully."})
+
+        return Response(serializer.errors, status=400)

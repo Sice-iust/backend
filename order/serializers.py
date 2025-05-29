@@ -85,6 +85,8 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "delivered_at",
             "reciver",
             "reciver_phone",
+            "is_admin_canceled",
+            "admin_reason",
         ]
 
 
@@ -164,3 +166,8 @@ class OrderInvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model=OrderItem
         fields = ["product", "quantity"]
+
+
+class AdminCancelSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+    reason = serializers.CharField()
