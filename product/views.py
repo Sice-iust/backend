@@ -12,6 +12,9 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
+from rest_framework.generics import ListAPIView
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import ProductFilter
 
 class AdminProductView(APIView):
     serializer_class = ProductSerializer
@@ -342,3 +345,32 @@ class CategoryBoxView(APIView):
             products, many=True, context={"request": request}
         )
         return Response(serializer.data)
+
+class AdminProductDisply(APIView):
+    serializer_class = AdminProduct
+
+    def get(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+        products = Product.objects.all()
+        serializer = self.serializer_class(products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminFilterProduct(ListAPIView):
+    serializer_class = AdminProduct
+    queryset = Product.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ProductFilter
+
+    def list(self, request, *args, **kwargs):
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        return super().list(request, *args, **kwargs)

@@ -448,7 +448,7 @@ class AdminCancleView(APIView):
 
         return Response(serializer.errors, status=400)
 
-class DeliveryStatusView(ApiView):
+class DeliveryStatusView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = StatusSerializer
 
