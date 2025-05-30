@@ -131,10 +131,36 @@ class ProductCommentSerializer(serializers.ModelSerializer):
         if not validated_data['user'] or not validated_data['product']:
             raise serializers.ValidationError("User and product must be provided in context.")
         return super().create(validated_data)
-    
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['user_name'] = instance.user.username
         data['suggested_label'] = instance.suggested
         data['posted_at'] = instance.posted_at
         return data
+
+
+class AdminProduct(serializers.ModelSerializer):
+    photo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "category",
+            "name",
+            "price",
+            "stock",
+            "box_type",
+            "box_color",
+            "color",
+            "photo_url",
+            "average_rate",
+            "discount",
+        ]
+
+    def get_photo_url(self, obj):
+        request = self.context.get("request")
+        if obj.photo and hasattr(obj.photo, "url") and request:
+            return request.build_absolute_uri(obj.photo.url)
+        return None
