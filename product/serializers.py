@@ -18,7 +18,8 @@ class ProductSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
     discounted_price = serializers.SerializerMethodField()
     subcategories = SubcategorySerializer(many=True, required=False)
-
+    category = serializers.CharField(source="category.category", read_only=True)
+    box_color = serializers.CharField(source="category.box_color", read_only=True)
     class Meta:
         model = Product
         fields = [
@@ -50,19 +51,6 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.price - (obj.price * obj.discount / 100)
         return obj.price
 
-    def create(self, validated_data):
-        subcategories_data = validated_data.pop("subcategories", [])
-        product = Product.objects.create(**validated_data)
-        existing_subcategories = set()
-        for subcategory in subcategories_data:
-            subcategory_value = subcategory["subcategory"]
-            if subcategory_value not in existing_subcategories:
-                Subcategory.objects.create(
-                    product=product, subcategory=subcategory_value
-                )
-                existing_subcategories.add(subcategory_value)
-        return product
-
 
 class ProductRateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -92,6 +80,8 @@ class ProductCartSerializer(serializers.ModelSerializer):
 
 class SummerizedProductCartSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField("get_image")
+
+    box_color = serializers.CharField(source="category.box_color", read_only=True)
     class Meta:
         model = Product
         fields = [
@@ -140,13 +130,17 @@ class ProductCommentSerializer(serializers.ModelSerializer):
         return data
 
 
-class AdminProduct(serializers.ModelSerializer):
-    photo_url = serializers.SerializerMethodField()
-
+class AdminProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    category = serializers.CharField(source="category.category", read_only=True)
+    box_color = serializers.CharField(source="category.box_color", read_only=True)
+    category_id=serializers.IntegerField(write_only=True)
+    new_photo = serializers.ImageField(write_only=True, required=False)
     class Meta:
         model = Product
         fields = [
             "id",
+            "new_photo",
             "category",
             "name",
             "price",
@@ -154,13 +148,18 @@ class AdminProduct(serializers.ModelSerializer):
             "box_type",
             "box_color",
             "color",
-            "photo_url",
+            "image",
             "average_rate",
             "discount",
+            "category_id",
         ]
 
-    def get_photo_url(self, obj):
-        request = self.context.get("request")
-        if obj.photo and hasattr(obj.photo, "url") and request:
-            return request.build_absolute_uri(obj.photo.url)
+    def get_image(self, obj):
+        if obj.photo and hasattr(obj.photo, "url"):
+            return self.context["request"].build_absolute_uri(obj.photo.url)
         return None
+
+class CategoryNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=Category
+        fields=['category']

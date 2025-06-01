@@ -404,7 +404,7 @@ class AdminDeliveredOrder(APIView):
         if not self.check_admin(request):
             return Response({"message": "Permission denied"}, status=403)
 
-        orders = Order.objects.filter(Q(status=4) | Q(is_admin_canceled=True))
+        orders = Order.objects.filter(Q(status=4) | Q(is_admin_canceled=True)|Q (is_archive=True))
         serializer = self.serializer_class(orders, many=True)
         return Response(serializer.data)
 
@@ -448,24 +448,59 @@ class AdminCancleView(APIView):
 
         return Response(serializer.errors, status=400)
 
-class DeliveryStatusView(APIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = StatusSerializer
+
+class ChangeStatusView(APIView):
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                description="Enter status number (1-4)",
+                required=True,
+                type=int,
+            ),
+        ]
+    )
+    def get(self, request, id):
+        status_param = request.query_params.get("status")
+
+        if not status_param:
+            return Response(
+                {"error": "status parameter is required."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            new_status = int(status_param)
+        except ValueError:
+            return Response({"error": "status must be an integer."}, status=400)
+
+        if new_status < 1 or new_status > 4:
+            return Response({"error": "status must be between 1 and 4."}, status=400)
+
+        try:
+            order = Order.objects.get(id=id)
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found."}, status=404)
+
+        if order.status > new_status:
+            return Response({"error": "Cannot downgrade order status."}, status=400)
+
+        order.status = new_status
+        order.save()
+
+        return Response({"message": "Order status updated successfully."})
+
+
+class OrderIdView(APIView):
+    serializer_class = OrderIdSerializer
 
     def check_admin(self, request):
         admin_group = Group.objects.get(name="Admin")
         return admin_group in request.user.groups.all()
 
-    def post(self, request):
+    def get(self, request):
         if not self.check_admin(request):
             return Response({"message": "Permission denied"}, status=403)
-
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            data = serializer.validated_data
-            order = get_object_or_404(Order, id=data["order_id"])
-            order.status=data['status']
-            order.save()
-            return Response({"message": "Order marked successfully."})
-
-        return Response(serializer.errors, status=400)
+        orders = Order.objects.all()
+        serializer = self.serializer_class(orders, many=True)
+        return Response({"id": serializer.data})

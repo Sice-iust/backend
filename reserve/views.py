@@ -1,141 +1,141 @@
-from django.shortcuts import render
-from .models import *
-from .serializers import *
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
-from django.http import Http404
-from django.contrib.auth.models import Group
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from order.models import Order
-from rest_framework import status
-from users.models import Location
-class ReservationView(APIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = ReservationSerializer
+# from django.shortcuts import render
+# from .models import *
+# from .serializers import *
+# from rest_framework.permissions import IsAuthenticated
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from rest_framework.permissions import IsAdminUser
+# from django.http import Http404
+# from django.contrib.auth.models import Group
+# from drf_yasg.utils import swagger_auto_schema
+# from drf_yasg import openapi
+# from drf_spectacular.utils import extend_schema, OpenApiParameter
+# from order.models import Order
+# from rest_framework import status
+# from users.models import Location
+# class ReservationView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = ReservationSerializer
 
-    def get(self, request):
-        user = request.user
-        reservs = BreadReservation.objects.filter(user=user).all()
-        serializer = self.serializer_class(reservs, many=True)
-        total_price_all = 0
-        for item in reservs:
-            base_price = item.product.price
-            total_items =  item.quantity
-            discount = item.product.discount or 0
-            discount_rate = Decimal(1) - (Decimal(discount) / Decimal(100))
-            discounted_price = base_price * discount_rate
-            total_price_all += discounted_price * total_items
+#     def get(self, request):
+#         user = request.user
+#         reservs = BreadReservation.objects.filter(user=user).all()
+#         serializer = self.serializer_class(reservs, many=True)
+#         total_price_all = 0
+#         for item in reservs:
+#             base_price = item.product.price
+#             total_items =  item.quantity
+#             discount = item.product.discount or 0
+#             discount_rate = Decimal(1) - (Decimal(discount) / Decimal(100))
+#             discounted_price = base_price * discount_rate
+#             total_price_all += discounted_price * total_items
 
-        return Response(
-            {
-                "reservations": serializer.data,
-                "total_price_all": total_price_all,
-            }
-        )
+#         return Response(
+#             {
+#                 "reservations": serializer.data,
+#                 "total_price_all": total_price_all,
+#             }
+#         )
 
-    def post(self, request):
-        user = request.user
-        data = request.data.copy()
-        data["user"] = user.id  
+#     def post(self, request):
+#         user = request.user
+#         data = request.data.copy()
+#         data["user"] = user.id  
 
-        serializer = self.serializer_class(data=data, context={"request": request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {
-                    "message": "Reservation created successfully",
-                    "reservation": serializer.data,
-                },
-                status=status.HTTP_201_CREATED,
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class AdminReservationView(APIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = ReservationSerializer
-
-    def get(self, request):
-        if not request.user.groups.filter(name="Admin").exists():
-            return Response({"message": "Permission denied"}, status=403)
-        reservs = BreadReservation.objects.all()
-        serializer = self.serializer_class(
-            reservs, many=True, context={"request": request}
-        )
-        total_price_all = 0
-        for item in reservs:
-            base_price = item.product.price
-            total_items =  item.quantity
-            discount = item.product.discount or 0
-            discounted_price = Decimal(base_price * (1 - discount / 100))
-            total_price_all += discounted_price * total_items
-
-        return Response(
-            {
-                "reservations": serializer.data,
-                "total_price_all": total_price_all,
-            }
-        )
+#         serializer = self.serializer_class(data=data, context={"request": request})
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(
+#                 {
+#                     "message": "Reservation created successfully",
+#                     "reservation": serializer.data,
+#                 },
+#                 status=status.HTTP_201_CREATED,
+#             )
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class OrderReservesView(APIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = OrderReservationSerializer
+# class AdminReservationView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = ReservationSerializer
 
-    def post(self, request):
-        user = request.user
-        serializer = self.serializer_class(data=request.data)
+#     def get(self, request):
+#         if not request.user.groups.filter(name="Admin").exists():
+#             return Response({"message": "Permission denied"}, status=403)
+#         reservs = BreadReservation.objects.all()
+#         serializer = self.serializer_class(
+#             reservs, many=True, context={"request": request}
+#         )
+#         total_price_all = 0
+#         for item in reservs:
+#             base_price = item.product.price
+#             total_items =  item.quantity
+#             discount = item.product.discount or 0
+#             discounted_price = Decimal(base_price * (1 - discount / 100))
+#             total_price_all += discounted_price * total_items
 
-        if serializer.is_valid():
-            if serializer.validated_data["is_paid"] is False:
-                return Response({"message": "You should pay"}, status=400)
+#         return Response(
+#             {
+#                 "reservations": serializer.data,
+#                 "total_price_all": total_price_all,
+#             }
+#         )
 
-            reservations = BreadReservation.objects.filter(user=user, active=True)
 
-            if not reservations.exists():
-                return Response(
-                    {"message": "No active reservations found."}, status=404
-                )
+# class OrderReservesView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = OrderReservationSerializer
 
-            total_price = 0
-            for res in reservations:
-                base_price = res.product.price
-                discount = res.product.discount or 0
-                discounted_price = Decimal(base_price * (1 - discount / 100))
-                total_price += discounted_price * res.total_items
+#     def post(self, request):
+#         user = request.user
+#         serializer = self.serializer_class(data=request.data)
 
-            location = reservations.first().location or "Unknown"
-            delivery_time = reservations.first().next_delivery_date()
+#         if serializer.is_valid():
+#             if serializer.validated_data["is_paid"] is False:
+#                 return Response({"message": "You should pay"}, status=400)
 
-            order = Order.objects.create(
-                user=user,
-                location=location,
-                delivery_time=delivery_time,
-                total_price=round(total_price, 2),
-            )
+#             reservations = BreadReservation.objects.filter(user=user, active=True)
 
-            for res in reservations:
-                OrderItem.objects.create(
-                    order=order,
-                    product=res.product,
-                    quantity=res.quantity,
-                    box_type=res.box_type,
-                    product_discount=res.product.discount or 0,
-                )
+#             if not reservations.exists():
+#                 return Response(
+#                     {"message": "No active reservations found."}, status=404
+#                 )
 
-            reservations.update(active=False)
+#             total_price = 0
+#             for res in reservations:
+#                 base_price = res.product.price
+#                 discount = res.product.discount or 0
+#                 discounted_price = Decimal(base_price * (1 - discount / 100))
+#                 total_price += discounted_price * res.total_items
 
-            return Response(
-                {
-                    "message": "Order created from reservations successfully",
-                    "order_id": order.id,
-                    "total_price": order.total_price,
-                },
-                status=201,
-            )
+#             location = reservations.first().location or "Unknown"
+#             delivery_time = reservations.first().next_delivery_date()
 
-        return Response(serializer.errors, status=400)
+#             order = Order.objects.create(
+#                 user=user,
+#                 location=location,
+#                 delivery_time=delivery_time,
+#                 total_price=round(total_price, 2),
+#             )
+
+#             for res in reservations:
+#                 OrderItem.objects.create(
+#                     order=order,
+#                     product=res.product,
+#                     quantity=res.quantity,
+#                     box_type=res.box_type,
+#                     product_discount=res.product.discount or 0,
+#                 )
+
+#             reservations.update(active=False)
+
+#             return Response(
+#                 {
+#                     "message": "Order created from reservations successfully",
+#                     "order_id": order.id,
+#                     "total_price": order.total_price,
+#                 },
+#                 status=201,
+#             )
+
+#         return Response(serializer.errors, status=400)

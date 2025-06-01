@@ -17,5 +17,6 @@ urlpatterns = [
     path("nanzi/admin/delivered/", AdminDeliveredOrder.as_view()),
     path("nanzi/admin/process/", AdminProcessing.as_view()),
     path("nanzi/admin/cancle/", AdminCancleView.as_view()),
-    path("nanzi/admin/status/", DeliveryStatusView.as_view()),
+    path("nanzi/status/change/<int:id>", ChangeStatusView.as_view()),
+    path("nanzi/admin/order/id/", OrderIdView.as_view()),
 ]

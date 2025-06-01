@@ -86,7 +86,7 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "reciver",
             "reciver_phone",
             "is_admin_canceled",
-            "admin_reason",
+            "admin_reason","is_archive"
         ]
 
 
@@ -176,3 +176,9 @@ class AdminCancelSerializer(serializers.Serializer):
 class StatusSerializer(serializers.Serializer):
     order_id = serializers.IntegerField()
     status = serializers.IntegerField()
+
+
+class OrderIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ["id"]
