@@ -24,7 +24,9 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import status
 from payment.models import ZarinpalTransaction
 from django.db.models import Q
-
+from .filters import OrderFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics
 
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
@@ -504,3 +506,10 @@ class OrderIdView(APIView):
         orders = Order.objects.all()
         serializer = self.serializer_class(orders, many=True)
         return Response({"id": serializer.data})
+
+
+class OrderListView(generics.ListAPIView):
+    queryset = Order.objects.select_related("delivery", "user").all()
+    serializer_class = MyOrderSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter

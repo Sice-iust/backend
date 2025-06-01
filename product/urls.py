@@ -18,4 +18,6 @@ urlpatterns = [
     path("nanzi/admin/product/show/",AdminProductDisply.as_view()),
     path("nanzi/admin/product/filter/",AdminFilterProduct.as_view()),
     path("nanzi/admin/categories/name/",CategoryNameView.as_view()),
+    path("nanzi/admin/category/create/",CategoryCreationView.as_view()),
+    path("nanzi/admin/category/modify/<int:id>/",CategoryModifyView.as_view()),
 ]

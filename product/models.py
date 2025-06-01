@@ -17,7 +17,7 @@ class Product(models.Model):
         (8, "Box of 8"),
     ]
     category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, related_name="product_category",null=True,blank=True
+        Category, on_delete=models.PROTECT, related_name="product_category",null=True,blank=True
     )
     name = models.CharField(max_length=250, blank=False)
     price = models.DecimalField(max_digits=10, decimal_places=2)

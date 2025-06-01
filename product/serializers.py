@@ -163,3 +163,11 @@ class CategoryNameSerializer(serializers.ModelSerializer):
     class Meta:
         model=Category
         fields=['category']
+
+
+class CategoryCreationSerializer(serializers.ModelSerializer):
+    photo = serializers.ImageField(write_only=True, required=False)
+    class Meta:
+        model=Category
+        fields=['category','photo','box_color']
+        
