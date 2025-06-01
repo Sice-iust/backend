@@ -75,6 +75,7 @@ class Order(models.Model):
     reciver_phone = models.CharField(max_length=20, null=True, blank=True)
     is_admin_canceled = models.BooleanField(default=False)
     admin_reason = models.TextField(blank=True, null=True)
+    is_archive = models.BooleanField(default=False)
     def save(self, *args, **kwargs):
         if self.status == 4:
             if (
