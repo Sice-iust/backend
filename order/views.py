@@ -513,3 +513,34 @@ class OrderListView(generics.ListAPIView):
     serializer_class = MyOrderSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = OrderFilter
+
+
+class AdminOrderInvoiceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def get(self, request,id):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+        order = get_object_or_404(Order, id=id)
+        if order.pay_status != "paid":
+            return Response({"this is failed."})
+        invoices = OrderItem.objects.filter(order=order)
+        serializer = OrderInvoiceSerializer(
+            invoices, many=True, context={"request": request}
+        )
+        total_price = order.total_price or Decimal("0")
+        discount = order.profit or Decimal("0")
+        shipping_fee = order.delivery.shipping_fee or Decimal("0")
+
+        return Response(
+            {
+                "payment": total_price + discount - shipping_fee,
+                "shipping_fee": shipping_fee,
+                "discount": discount,
+                "items": serializer.data,
+            }
+        )
