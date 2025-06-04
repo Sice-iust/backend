@@ -152,6 +152,7 @@ class AdminProductSerializer(serializers.ModelSerializer):
             "average_rate",
             "discount",
             "category_id",
+            "description",
         ]
 
     def get_image(self, obj):
@@ -170,4 +171,3 @@ class CategoryCreationSerializer(serializers.ModelSerializer):
     class Meta:
         model=Category
         fields=['category','photo','box_color']
-        

@@ -341,14 +341,20 @@ class AdminProductView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             color = category.box_color
-            photo=data.photo
-            serializer.save(category=category, color=color,photo=photo)
+            if data.new_photo
+                photo=data.new_photo
+                serializer.save(category=category, color=color,photo=new_photo)
+
+                return Response(
+                    {"message": "Product saved successfully"},
+                    status=status.HTTP_201_CREATED,
+                )
+            serializer.save(category=category, color=color)
 
             return Response(
-                {"message": "Product saved successfully"},
-                status=status.HTTP_201_CREATED,
-            )
-
+                    {"message": "Product saved successfully"},
+                    status=status.HTTP_201_CREATED,
+                )       
         return Response(
             {"message": "Something went wrong", "errors": serializer.errors},
             status=status.HTTP_400_BAD_REQUEST,

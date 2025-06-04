@@ -288,6 +288,7 @@ class OrderInvoiceView(APIView):
 
     def get(self, request, id):
         user = request.user
+        # this is a authentical problem IDOR
         order = get_object_or_404(Order, id=id, user=user)
         if order.pay_status!='paid':
             return Response({"this is failed."})
@@ -428,6 +429,7 @@ class ChangeStatusView(RateTimeBaseView, APIView):
         ]
     )
     def get(self, request, id):
+        user=request.user
         status_param = request.query_params.get("status")
 
         if not status_param:
@@ -445,7 +447,7 @@ class ChangeStatusView(RateTimeBaseView, APIView):
             return Response({"error": "status must be between 1 and 4."}, status=400)
 
         try:
-            order = Order.objects.get(id=id)
+            order = Order.objects.get(id=id,user=user)
         except Order.DoesNotExist:
             return Response({"error": "Order not found."}, status=404)
 
@@ -479,7 +481,7 @@ class OrderListView(generics.ListAPIView):
 class AdminOrderInvoiceView(APIView):
     permission_classes = [IsAuthenticated, IsAdminGroupUser]
     def get(self, request,id):
-
+        
         order = get_object_or_404(Order, id=id)
         if order.pay_status != "paid":
             return Response({"this is failed."})
