@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def send_otp_sms(phone_number, otp):
-    url = "https://sms.ferzz.ir/afg/send-message"
+    url = "https://intlsms.Ferzz.ir/afg/send-message"
     # message = f"به نانزی خوش آمدید\nکد تایید شما: {otp}"
     payload = {
         "phone": str(format_phone_number(phone_number)),

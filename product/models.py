@@ -24,7 +24,7 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     photo = models.ImageField(upload_to="product")
     average_rate = models.FloatField(default=0, db_index=True)
-    discount = models.PositiveIntegerField(default=0, db_index=True)
+    discount = models.PositiveIntegerField(default=0, db_index=True,null=True,blank=True)
     stock = models.PositiveIntegerField(default=0)
     box_type = models.PositiveIntegerField(choices=BOX_CHOICES, default=1)
     color = models.CharField(max_length=255, blank=True, null=True)

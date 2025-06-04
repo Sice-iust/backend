@@ -23,10 +23,12 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from wallet.models import UserWallet
 from django.shortcuts import get_object_or_404
+from .ratetimes import *
 
-class SendOTPView(APIView):
+
+class SendOTPView(RateTimeBaseView,APIView):
     serializer_class = SendOTPSerializer
-
+    ratetime_class = [ThreePerMinuteLimit]
     def post(self, request):
         serializer = SendOTPSerializer(data=request.data)
         if serializer.is_valid():
@@ -58,8 +60,9 @@ class SendOTPView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class LoginVerifyOTPView(APIView):
+class LoginVerifyOTPView(RateTimeBaseView,APIView):
     serializer_class = LoginVerifyOTPSerializer
+    ratetime_class = [ThreePerMinuteLimit]
     def post(self, request):
         serializer = LoginVerifyOTPSerializer(data=request.data)
         if serializer.is_valid():
@@ -87,6 +90,7 @@ class LoginVerifyOTPView(APIView):
                 status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class SignUpVerifyOTPView(APIView):
     serializer_class = SignUPVerifyOTPSerializer
@@ -132,11 +136,12 @@ class ProfileView(APIView):
         serializer = self.serializer_class(user, context={"request": request})
         return Response(serializer.data)
 
-class UpdateProfileView(APIView):
+
+class UpdateProfileView(RateTimeBaseView,APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
     serializer_class = UpdateProfileSerializer
-
+    ratetime_class = [GetAndPostLimit]
     def put(self, request):
         user = request.user
         serializer = self.serializer_class(

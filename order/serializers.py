@@ -194,6 +194,10 @@ class AdminCancelSerializer(serializers.Serializer):
     reason = serializers.CharField()
 
 
+class AdminArchiveSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+
+
 class StatusSerializer(serializers.Serializer):
     order_id = serializers.IntegerField()
     status = serializers.IntegerField()

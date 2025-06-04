@@ -134,24 +134,26 @@ class AdminProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     category = serializers.CharField(source="category.category", read_only=True)
     box_color = serializers.CharField(source="category.box_color", read_only=True)
-    category_id=serializers.IntegerField(write_only=True)
+    category_id = serializers.IntegerField(write_only=True)
     new_photo = serializers.ImageField(write_only=True, required=False)
+
     class Meta:
         model = Product
         fields = [
             "id",
-            "new_photo",
-            "category",
+            "new_photo",       
+            "category",      
             "name",
             "price",
             "stock",
             "box_type",
-            "box_color",
+            "box_color",       
             "color",
-            "image",
+            "image",          
             "average_rate",
             "discount",
-            "category_id",
+            "category_id",    
+            "description",
         ]
 
     def get_image(self, obj):
@@ -159,10 +161,24 @@ class AdminProductSerializer(serializers.ModelSerializer):
             return self.context["request"].build_absolute_uri(obj.photo.url)
         return None
 
+    def create(self, validated_data):
+        new_photo = validated_data.pop('new_photo', None)
+        category = validated_data.pop('category', None)
+        color = validated_data.pop('color', None)
+
+        if new_photo:
+            validated_data['photo'] = new_photo
+        if category:
+            validated_data['category'] = category
+        if color:
+            validated_data['color'] = color
+
+        return Product.objects.create(**validated_data)
+
 class CategoryNameSerializer(serializers.ModelSerializer):
     class Meta:
         model=Category
-        fields=['category']
+        fields = ["category", "id", "box_color"]
 
 
 class CategoryCreationSerializer(serializers.ModelSerializer):
@@ -170,4 +186,3 @@ class CategoryCreationSerializer(serializers.ModelSerializer):
     class Meta:
         model=Category
         fields=['category','photo','box_color']
-        
