@@ -22,6 +22,7 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from wallet.models import UserWallet
+from django.shortcuts import get_object_or_404
 
 class SendOTPView(APIView):
     serializer_class = SendOTPSerializer
@@ -66,13 +67,13 @@ class LoginVerifyOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).last()
             if not user:
                 return Response({"message":"you are not registered."})
-            otp_saved = Otp.objects.filter(phonenumber=phone).last()
-            if not otp_saved:
-                return Response({"message":"OTP is used or expired."})
-            if not otp_saved.is_otp_valid():
-                return Response({"message":"OTP expired, request a new one."})
-            if otp_saved.otp != serializer.validated_data["otp"]:
-                return Response("Invalid OTP.")
+            # otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            # if not otp_saved:
+            #     return Response({"message":"OTP is used or expired."})
+            # if not otp_saved.is_otp_valid():
+            #     return Response({"message":"OTP expired, request a new one."})
+            # if otp_saved.otp != serializer.validated_data["otp"]:
+            #     return Response("Invalid OTP.")
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
@@ -207,6 +208,13 @@ class SingleLocationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LocationSerializer
 
+    def get(self, request, id):
+        user = request.user
+        location = get_object_or_404(
+            Location, id=id, user=user
+        )  
+        serializer = LocationSerializer(location)
+        return Response(serializer.data)
 
     def put(self, request, id):
         user = request.user

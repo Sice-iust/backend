@@ -12,24 +12,15 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
-
-class AdminProductView(APIView):
-    serializer_class = ProductSerializer
-    parser_classes = [MultiPartParser, FormParser]
-    def post(self, request):
-        admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
-        serializer = self.serializer_class(
-            data=request.data, context={"request": request}
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "Product saved successfully"})
-        return Response(
-            {"message": "Something went wrong", "errors": serializer.errors}, status=400
-        )
-
+from rest_framework.generics import ListAPIView
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import ProductFilter
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.contrib.auth.models import Group
+from rest_framework import status
+from .models import Category
 
 class SingleProductView(APIView):
     serializer_class = ProductSerializer
@@ -38,43 +29,6 @@ class SingleProductView(APIView):
             product = Product.objects.get(id=id)
             obj = ProductSerializer(product, context={"request": request})
             return Response(obj.data)
-        except Product.DoesNotExist:
-            return Response({"message": "Product not found"}, status=404)
-
-
-class AdminSingleProductView(APIView):
-    serializer_class = ProductSerializer
-    def put(self, request, id):
-        admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
-
-        try:
-            product = Product.objects.get(id=id)
-        except Product.DoesNotExist:
-            raise Http404("Product not found")
-
-        serializer = self.serializer_class(
-            product, data=request.data, partial=True, context={"request": request}
-        )
-        if serializer.is_valid():
-            serializer.save()
-            if request.data.get("photo"):
-                product.photo = request.data.get("photo")
-                product.save()
-            return Response({"message": "Product updated successfully"})
-        return Response(
-            {"message": "Something went wrong", "errors": serializer.errors}, status=400
-        )
-
-    def delete(self, request,id):
-        admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
-        try:
-            product = Product.objects.get(id=id)
-            product.delete()
-            return Response({"message": "Product deleted successfully"})
         except Product.DoesNotExist:
             return Response({"message": "Product not found"}, status=404)
 
@@ -274,7 +228,7 @@ class CategoryView(APIView):
         if not category_name:
             return Response({"error": "Invalid category number"}, status=400)
 
-        items = Product.objects.filter(category=category_name)
+        items = Product.objects.filter(category__category=category_name)
         serializer = self.serializer_class(
             items, many=True, context={"request": request}
         )
@@ -337,8 +291,210 @@ class CategoryBoxView(APIView):
                 {"error": "Invalid box_type. Must be one of 1, 2, 4, 6, 8."}, status=400
             )
 
-        products = Product.objects.filter(category=category_name, box_type=box)
+        products = Product.objects.filter(
+            category__category=category_name, box_type=box
+        )
         serializer = self.serializer_class(
             products, many=True, context={"request": request}
         )
         return Response(serializer.data)
+
+class AdminProductDisply(APIView):
+    serializer_class = AdminProductSerializer
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+        products = Product.objects.all()
+        serializer = self.serializer_class(
+            products, many=True, context={"request": request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminFilterProduct(ListAPIView):
+    serializer_class = AdminProductSerializer
+    queryset = Product.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ProductFilter
+
+    def list(self, request, *args, **kwargs):
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        return super().list(request, *args, **kwargs)
+
+
+class AdminProductView(APIView):
+    serializer_class = AdminProductSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            data = serializer.validated_data
+            category_id = data.get("category_id")
+            try:
+                category = Category.objects.get(id=category_id)
+            except Category.DoesNotExist:
+                return Response(
+                    {"message": "Invalid category ID"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            color = category.box_color
+            photo=data.photo
+            serializer.save(category=category, color=color,photo=photo)
+
+            return Response(
+                {"message": "Product saved successfully"},
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(
+            {"message": "Something went wrong", "errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class AdminSingleProductView(APIView):
+    serializer_class = AdminProductSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    def put(self, request, id):
+        admin_group = Group.objects.get(name="Admin")
+        if not admin_group in request.user.groups.all():
+            return Response({"message": "Permission denied"}, status=403)
+
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+
+        serializer = self.serializer_class(
+            product, data=request.data, partial=True, context={"request": request}
+        )
+        if serializer.is_valid():
+            data = serializer.validated_data
+            category_id = data.get("category_id")
+            try:
+                category = Category.objects.get(id=category_id)
+            except Category.DoesNotExist:
+                return Response(
+                    {"message": "Invalid category ID"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            color = category.box_color
+            serializer.save(category=category, color=color)
+            if request.data.get("photo"):
+                product.photo = request.data.get("photo")
+                product.save()
+
+            return Response({"message": "Product updated successfully"})
+        return Response(
+            {"message": "Something went wrong", "errors": serializer.errors}, status=400
+        )
+
+    def delete(self, request, id):
+        admin_group = Group.objects.get(name="Admin")
+        if not admin_group in request.user.groups.all():
+            return Response({"message": "Permission denied"}, status=403)
+        try:
+            product = Product.objects.get(id=id)
+            product.delete()
+            return Response({"message": "Product deleted successfully"})
+        except Product.DoesNotExist:
+            return Response({"message": "Product not found"}, status=404)
+
+
+class CategoryNameView(APIView):
+    serializer_class = CategoryNameSerializer
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+        categories = Category.objects.all()
+        serializer = self.serializer_class(categories, many=True)
+        return Response(serializer.data)
+
+
+class CategoryCreationView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CategoryCreationSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    def post(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            serializer.save(photo=data.get("photo"))
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CategoryModifyView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CategoryCreationSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    def get_object(self, id):
+        try:
+            return Category.objects.get(id=id)
+        except Category.DoesNotExist:
+            return None
+
+    def put(self, request, id):
+        category = self.get_object(id)
+        if not category:
+            return Response(
+                {"message": "Category not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = self.serializer_class(category, data=request.data, partial=True)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            serializer.save(photo=data.get("photo"))
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, id):
+        category = self.get_object(id)
+        if not category:
+            return Response(
+                {"message": "Category not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        admin_group = Group.objects.get(name="Admin")
+        if admin_group not in request.user.groups.all():
+            return Response(
+                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        category.delete()
+        return Response(
+            {"message": "Category deleted"}, status=status.HTTP_204_NO_CONTENT
+        )

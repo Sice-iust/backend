@@ -2,6 +2,11 @@ from django.db import models
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
+class Category(models.Model):
+    category = models.CharField(max_length=255, db_index=True)
+    box_color = models.TextField(default="red")
+    photo = models.ImageField(upload_to="category")
+
 
 class Product(models.Model):
     BOX_CHOICES = [
@@ -11,19 +16,19 @@ class Product(models.Model):
         (6, "Box of 6"),
         (8, "Box of 8"),
     ]
-    category = models.CharField(max_length=255, db_index=True)
+    category = models.ForeignKey(
+        Category, on_delete=models.PROTECT, related_name="product_category",null=True,blank=True
+    )
     name = models.CharField(max_length=250, blank=False)
-    price = models.DecimalField(
-        max_digits=10, decimal_places=2
-    )  
-    description = models.TextField(blank=True)  
-    photo = models.ImageField(upload_to="product") 
-    average_rate = models.FloatField(default=0,db_index=True)
-    discount = models.PositiveIntegerField(default=0,db_index=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    description = models.TextField(blank=True)
+    photo = models.ImageField(upload_to="product")
+    average_rate = models.FloatField(default=0, db_index=True)
+    discount = models.PositiveIntegerField(default=0, db_index=True)
     stock = models.PositiveIntegerField(default=0)
-    box_type = models.PositiveIntegerField(choices=BOX_CHOICES,default=1)
-    box_color=models.TextField(default='red')
-    color=models.CharField(max_length=255,blank=True,null=True)
+    box_type = models.PositiveIntegerField(choices=BOX_CHOICES, default=1)
+    color = models.CharField(max_length=255, blank=True, null=True)
+
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -34,6 +39,7 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class Subcategory(models.Model):
     product = models.ForeignKey(

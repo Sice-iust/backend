@@ -130,7 +130,9 @@ class SingleModifyCartView(APIView):
             cart.save()
             return Response({"success": "Cart updated"}, status=200)
 
-        return Response(serializer.errors, status=400)
+        return Response(
+            {"error": "Invalid update mode. Use 'add' or 'delete'."}, status=400
+        )
 
     def delete(self, request, id):
         user = request.user

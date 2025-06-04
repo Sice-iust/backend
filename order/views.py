@@ -23,6 +23,11 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import status
 from payment.models import ZarinpalTransaction
+from django.db.models import Q
+from .filters import OrderFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics
+
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -233,12 +238,12 @@ class ZarinpalVerifyView(APIView):
             order.pay_status = "paid"
             # order.status = 2
             order.save()
-            return redirect("https://nanzi-amber.vercel.app/ProfilePage/OrdersPage")
+            return Response({"message":"OK"})
         else:
             order.pay_status = "failed"
             order.status = 0
             order.save()
-            return redirect("https://nanzi-amber.vercel.app/")
+            return Response({"message": "NOK"})
 
 
 class OrderView(APIView):
@@ -392,3 +397,155 @@ class SingleAdminDeliverySlot(APIView):
             return Response({"message": "Slot deleted"})
         except DeliverySlots.DoesNotExist:
             return Response({"message": "Slot not found"}, status=404)
+
+
+class AdminDeliveredOrder(APIView):
+    serializer_class = MyOrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def get(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        orders = Order.objects.filter(Q(status=4) | Q(is_admin_canceled=True)|Q (is_archive=True))
+        serializer = self.serializer_class(orders, many=True)
+        return Response(serializer.data)
+
+class AdminProcessing(APIView):
+    serializer_class = MyOrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def get(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        orders = Order.objects.filter(status=1)
+        serializer = self.serializer_class(orders, many=True)
+        return Response(serializer.data)
+
+class AdminCancleView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminCancelSerializer
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def post(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            order = get_object_or_404(Order, id=data["order_id"])
+
+            order.is_admin_canceled = True
+            order.admin_reason = data["reason"]
+            order.save()
+
+            return Response({"message": "Order marked as admin-canceled successfully."})
+
+        return Response(serializer.errors, status=400)
+
+
+class ChangeStatusView(APIView):
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                description="Enter status number (1-4)",
+                required=True,
+                type=int,
+            ),
+        ]
+    )
+    def get(self, request, id):
+        status_param = request.query_params.get("status")
+
+        if not status_param:
+            return Response(
+                {"error": "status parameter is required."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            new_status = int(status_param)
+        except ValueError:
+            return Response({"error": "status must be an integer."}, status=400)
+
+        if new_status < 1 or new_status > 4:
+            return Response({"error": "status must be between 1 and 4."}, status=400)
+
+        try:
+            order = Order.objects.get(id=id)
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found."}, status=404)
+
+        if order.status > new_status:
+            return Response({"error": "Cannot downgrade order status."}, status=400)
+
+        order.status = new_status
+        order.save()
+
+        return Response({"message": "Order status updated successfully."})
+
+
+class OrderIdView(APIView):
+    serializer_class = OrderIdSerializer
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def get(self, request):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+        orders = Order.objects.all()
+        serializer = self.serializer_class(orders, many=True)
+        return Response({"id": serializer.data})
+
+
+class OrderListView(generics.ListAPIView):
+    queryset = Order.objects.select_related("delivery", "user").all()
+    serializer_class = MyOrderSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
+
+
+class AdminOrderInvoiceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def check_admin(self, request):
+        admin_group = Group.objects.get(name="Admin")
+        return admin_group in request.user.groups.all()
+
+    def get(self, request,id):
+        if not self.check_admin(request):
+            return Response({"message": "Permission denied"}, status=403)
+        order = get_object_or_404(Order, id=id)
+        if order.pay_status != "paid":
+            return Response({"this is failed."})
+        invoices = OrderItem.objects.filter(order=order)
+        serializer = OrderInvoiceSerializer(
+            invoices, many=True, context={"request": request}
+        )
+        total_price = order.total_price or Decimal("0")
+        discount = order.profit or Decimal("0")
+        shipping_fee = order.delivery.shipping_fee or Decimal("0")
+
+        return Response(
+            {
+                "payment": total_price + discount - shipping_fee,
+                "shipping_fee": shipping_fee,
+                "discount": discount,
+                "items": serializer.data,
+            }
+        )

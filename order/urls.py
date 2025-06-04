@@ -14,4 +14,11 @@ urlpatterns = [
     path("user/delivery/", DeliverSlotView.as_view()),
     path("nanzi/admin/deliveryslot/", AdminDeliverySlot.as_view()),
     path("nanzi/admin/deliveryslot/<int:pk>/", SingleAdminDeliverySlot.as_view()),
+    path("nanzi/admin/delivered/", AdminDeliveredOrder.as_view()),
+    path("nanzi/admin/process/", AdminProcessing.as_view()),
+    path("nanzi/admin/cancle/", AdminCancleView.as_view()),
+    path("nanzi/status/change/<int:id>", ChangeStatusView.as_view()),
+    path("nanzi/admin/order/id/", OrderIdView.as_view()),
+    path("nanzi/admin/order/filter/", OrderListView.as_view()),
+    path("nanzi/admin/order/invoice/<int:id>/", AdminOrderInvoiceView.as_view()),
 ]
