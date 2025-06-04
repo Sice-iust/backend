@@ -226,7 +226,7 @@ class ZarinpalVerifyView(RateTimeBaseView, APIView):
             merchant_id=settings.MERCHANT_ID,
             amount=transaction.amount,
         )
-
+        DeliverySlots.objects.filter(user=user).delete()
         if result.status_code == 200:
             order.pay_status = "paid"
             # order.status = 2
@@ -420,13 +420,14 @@ class AdminArchiveView(APIView):
     serializer_class = AdminArchiveSerializer
 
     def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            order = get_object_or_404(Order, id=data["order_id"])
+            order.is_archive = True
+            order.save()
 
-        order = get_object_or_404(Order, id=data["order_id"])
-
-        order.is_archive = True
-        order.save()
-
-        return Response({"message": "Order marked as is_archive successfully."})
+            return Response({"message": "Order marked as is_archive successfully."})
 
         return Response(serializer.errors, status=400)
 
