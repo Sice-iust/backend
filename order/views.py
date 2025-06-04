@@ -302,7 +302,7 @@ class OrderInvoiceView(APIView):
 
         return Response(
             {
-                "payment": total_price + discount - shipping_fee,
+                "payment": total_price - discount + shipping_fee,
                 "shipping_fee": shipping_fee,
                 "discount": discount,
                 "items": serializer.data,
@@ -511,7 +511,7 @@ class AdminOrderInvoiceView(APIView):
 
         return Response(
             {
-                "payment": total_price + discount - shipping_fee,
+                "payment": total_price - discount + shipping_fee,
                 "shipping_fee": shipping_fee,
                 "discount": discount,
                 "items": serializer.data,
