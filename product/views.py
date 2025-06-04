@@ -325,11 +325,12 @@ class AdminProductView(APIView):
     serializer_class = AdminProductSerializer
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, IsAdminGroupUser]
-    def post(self, request):
 
+    def post(self, request):
         serializer = self.serializer_class(
             data=request.data, context={"request": request}
         )
+
         if serializer.is_valid():
             data = serializer.validated_data
             category_id = data.get("category_id")
@@ -340,22 +341,14 @@ class AdminProductView(APIView):
                     {"message": "Invalid category ID"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            photo = None
-            color = category.box_color
-            if data.get("new_photo"):
-                photo = data.get("new_photo")
-                serializer.save(category=category, color=color, photo=photo)
 
-                return Response(
-                    {"message": "Product saved successfully"},
-                    status=status.HTTP_201_CREATED,
-                )
+            color = category.box_color
             serializer.save(category=category, color=color)
 
             return Response(
-                    {"message": "Product saved successfully"},
-                    status=status.HTTP_201_CREATED,
-                )       
+                {"message": "Product saved successfully"},
+                status=status.HTTP_201_CREATED,
+            )
         return Response(
             {"message": "Something went wrong", "errors": serializer.errors},
             status=status.HTTP_400_BAD_REQUEST,
