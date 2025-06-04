@@ -13,11 +13,11 @@ from django.shortcuts import get_object_or_404
 from order.models import Order
 from rest_framework.filters import OrderingFilter
 from users.permissions import IsAdminGroupUser
-
-class TicketView(APIView):
+from users.ratetimes import *
+class TicketView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TicketSerializer
-
+    ratetime_class = [ThreePerMinuteLimit]
     def get(self, request):
         tickets = Ticket.objects.filter(user=request.user)
         serializer = self.serializer_class(tickets, many=True)
@@ -39,9 +39,10 @@ class TicketView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SingleTicketView(APIView):
+class SingleTicketView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TicketSerializer
+   
     def put(self, request, id):
         ticket = get_object_or_404(Ticket, id=id, user=request.user)
         serializer = self.serializer_class(ticket, data=request.data, partial=True)
@@ -57,6 +58,8 @@ class SingleTicketView(APIView):
             {"detail": "Ticket deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
         )
+
+
 class PatchTicketView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PatchUserSerializer

@@ -28,7 +28,7 @@ from .filters import OrderFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics
 from users.permissions import IsAdminGroupUser
-
+from users.ratetimes import *
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -101,8 +101,9 @@ class SingleDiscountCartView(APIView):
 from django.http import HttpResponseRedirect
 
 
-class SubmitOrderView(APIView):
+class SubmitOrderView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
+    ratetime_class = [ThreePerMinuteLimit]
     serializer_class = FinalizeOrderSerializer
 
     def post(self, request):
@@ -201,10 +202,12 @@ class SubmitOrderView(APIView):
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
 
+
 from django.shortcuts import redirect
 
 
-class ZarinpalVerifyView(APIView):
+class ZarinpalVerifyView(RateTimeBaseView, APIView):
+    ratetime_class = [ThreePerMinuteLimit]
     def get(self, request):
         authority = request.GET.get("Authority")
         status_query = request.GET.get("Status")
@@ -214,8 +217,7 @@ class ZarinpalVerifyView(APIView):
             transaction = ZarinpalTransaction.objects.get(authority=authority)
             order = Order.objects.get(id=order_id)
         except (ZarinpalTransaction.DoesNotExist, Order.DoesNotExist):
-            return redirect("https://nanzi-amber.vercel.app/")
-
+            return Response({"message": "NOK"})
         zarinpal = ZarinpalPayment(callback_url="")  
 
         result = zarinpal.verify(
@@ -240,6 +242,7 @@ class ZarinpalVerifyView(APIView):
 class OrderView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MyOrderItemSerializer
+    
 
     def get(self, request):
         user = request.user
@@ -411,8 +414,9 @@ class AdminCancleView(APIView):
         return Response(serializer.errors, status=400)
 
 
-class ChangeStatusView(APIView):
+class ChangeStatusView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
+    ratetime_class = [GetOnlyLimit]
     @extend_schema(
         parameters=[
             OpenApiParameter(
