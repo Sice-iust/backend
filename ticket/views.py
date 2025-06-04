@@ -12,6 +12,7 @@ from .serializers import (
 from django.shortcuts import get_object_or_404
 from order.models import Order
 from rest_framework.filters import OrderingFilter
+from users.permissions import IsAdminGroupUser
 
 class TicketView(APIView):
     permission_classes = [IsAuthenticated]
@@ -85,14 +86,10 @@ class PatchTicketView(APIView):
 
 
 class AdminTicketView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
     serializer_class = AdminTicketSerializer
 
     def get(self, request):
-        if not request.user.groups.filter(name="Admin").exists():
-            return Response(
-                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
-            )
 
         tickets = Ticket.objects.all().order_by("-created_at")
         serializer = self.serializer_class(tickets, many=True)
@@ -100,15 +97,10 @@ class AdminTicketView(APIView):
 
 
 class AdminSingleTicketView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
     serializer_class = PatchAdminSerializer
 
     def patch(self, request, id):
-        if not request.user.groups.filter(name="Admin").exists():
-            return Response(
-                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
-            )
-
         try:
             ticket = Ticket.objects.get(id=id)
         except Ticket.DoesNotExist:
