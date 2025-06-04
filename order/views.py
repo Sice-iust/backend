@@ -415,6 +415,22 @@ class AdminCancleView(APIView):
         return Response(serializer.errors, status=400)
 
 
+class AdminArchiveView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    serializer_class = AdminArchiveSerializer
+
+    def post(self, request):
+
+        order = get_object_or_404(Order, id=data["order_id"])
+
+        order.is_archive = True
+        order.save()
+
+        return Response({"message": "Order marked as is_archive successfully."})
+
+        return Response(serializer.errors, status=400)
+
+
 class ChangeStatusView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
     ratetime_class = [GetOnlyLimit]

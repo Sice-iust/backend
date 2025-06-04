@@ -21,4 +21,5 @@ urlpatterns = [
     path("nanzi/admin/order/id/", OrderIdView.as_view()),
     path("nanzi/admin/order/filter/", OrderListView.as_view()),
     path("nanzi/admin/order/invoice/<int:id>/", AdminOrderInvoiceView.as_view()),
+    path("nanzi/admin/archive/", AdminArchiveView.as_view()),
 ]
