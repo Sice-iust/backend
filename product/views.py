@@ -341,7 +341,7 @@ class AdminProductView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             color = category.box_color
-            if data.new_photo
+            if data.new_photo:
                 photo=data.new_photo
                 serializer.save(category=category, color=color,photo=new_photo)
 
