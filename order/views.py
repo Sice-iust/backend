@@ -381,7 +381,7 @@ class AdminDeliveredOrder(APIView):
     permission_classes = [IsAuthenticated, IsAdminGroupUser]
     def get(self, request):
 
-        orders = Order.objects.filter(Q(status=4) | Q(is_admin_canceled=True)|Q (is_archive=True))
+        orders = Order.objects.filter(Q(status__gt=1) | Q(is_admin_canceled=True)|Q (is_archive=True))
         serializer = self.serializer_class(orders, many=True)
         return Response(serializer.data)
 

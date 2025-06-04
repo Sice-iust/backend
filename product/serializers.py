@@ -178,7 +178,7 @@ class AdminProductSerializer(serializers.ModelSerializer):
 class CategoryNameSerializer(serializers.ModelSerializer):
     class Meta:
         model=Category
-        fields=['category']
+        fields = ["category", "id", "box_color"]
 
 
 class CategoryCreationSerializer(serializers.ModelSerializer):

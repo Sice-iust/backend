@@ -404,7 +404,7 @@ class CategoryNameView(APIView):
     permission_classes = [IsAuthenticated, IsAdminGroupUser]
     def get(self, request):
 
-        categories = Category.objects.all()
+        categories = Category.objects.all().order_by("id")
         serializer = self.serializer_class(categories, many=True)
         return Response(serializer.data)
 
