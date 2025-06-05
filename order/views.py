@@ -208,7 +208,7 @@ from django.shortcuts import redirect
 
 class ZarinpalVerifyView(RateTimeBaseView, APIView):
     ratetime_class = [ThreePerMinuteLimit]
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     def get(self, request):
         user=request.user
         authority = request.GET.get("Authority")
@@ -228,7 +228,7 @@ class ZarinpalVerifyView(RateTimeBaseView, APIView):
             merchant_id=settings.MERCHANT_ID,
             amount=transaction.amount,
         )
-        DeliverySlots.objects.filter(user=user).delete()
+        # DeliverySlots.objects.filter(user=user).delete()
         if result.status_code == 200:
             order.pay_status = "paid"
             # order.status = 2
