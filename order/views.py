@@ -29,6 +29,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics
 from users.permissions import IsAdminGroupUser
 from users.ratetimes import *
+
+from django.shortcuts import redirect
+
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -201,9 +204,6 @@ class SubmitOrderView(RateTimeBaseView, APIView):
 
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
-
-
-from django.shortcuts import redirect
 
 
 class ZarinpalVerifyView(RateTimeBaseView, APIView):
