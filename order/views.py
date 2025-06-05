@@ -118,10 +118,10 @@ class SubmitOrderView(RateTimeBaseView, APIView):
         data = serializer.validated_data
         reciver=user.username
         reciver_phone = user.phonenumber
-        if data.get("reciver")!="string":
+        if data.get("reciver") and data.get("reciver") != "string":
             reciver = data.get("reciver")
-        if data.get("reciver") != "string":
-            reciver = data.get("reciver_phone")
+        if data.get("reciver_phone") and data.get("reciver_phone") != "string" :
+            reciver_phone = data.get("reciver_phone")
 
         try:
             location = Location.objects.get(id=data["location_id"])
@@ -152,7 +152,7 @@ class SubmitOrderView(RateTimeBaseView, APIView):
                     location=location,
                     user=user,
                     delivery=delivery,
-                    discription=data.get("discription", ""),
+                    discription=data["discription"],
                     total_price=data["total_price"],
                     profit=data["profit"],
                     status=1,
