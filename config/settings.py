@@ -75,8 +75,7 @@ CORS_ALLOW_CREDENTIALS = True
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_URL = "/media/"
-MEDIA_ROOT = "/app/media"  
-
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 CORS_ALLOW_ALL_ORIGINS = True  
 CORS_ALLOW_METHODS = [
     "GET",
