@@ -141,18 +141,18 @@ class AdminProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id",
-            "new_photo",       
-            "category",      
+            "new_photo",
+            "category",
             "name",
             "price",
             "stock",
             "box_type",
-            "box_color",       
+            "box_color",
             "color",
-            "image",          
+            "image",
             "average_rate",
             "discount",
-            "category_id",    
+            "category_id",
             "description",
         ]
 
@@ -162,18 +162,21 @@ class AdminProductSerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
-        new_photo = validated_data.pop('new_photo', None)
-        category = validated_data.pop('category', None)
-        color = validated_data.pop('color', None)
+        category_id = validated_data.pop("category_id")
+        new_photo = validated_data.pop("new_photo", None)
 
+        try:
+            category = Category.objects.get(id=category_id)
+        except Category.DoesNotExist:
+            raise serializers.ValidationError({"category_id": "Invalid category ID"})
+
+        validated_data["category"] = category
+        validated_data["color"] = category.box_color
         if new_photo:
-            validated_data['photo'] = new_photo
-        if category:
-            validated_data['category'] = category
-        if color:
-            validated_data['color'] = color
+            validated_data["photo"] = new_photo
 
         return Product.objects.create(**validated_data)
+
 
 class CategoryNameSerializer(serializers.ModelSerializer):
     class Meta:
