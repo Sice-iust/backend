@@ -393,7 +393,7 @@ class AdminProcessing(APIView):
 
     def get(self, request):
 
-        orders = Order.objects.filter(status=1,is_admin_canceled=False,is_archive=False)
+        orders = Order.objects.filter(status=1,is_admin_canceled=False,is_archive=False,pay_status="paid")
         serializer = self.serializer_class(orders, many=True)
         return Response(serializer.data)
 
