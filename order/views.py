@@ -208,7 +208,9 @@ from django.shortcuts import redirect
 
 class ZarinpalVerifyView(RateTimeBaseView, APIView):
     ratetime_class = [ThreePerMinuteLimit]
+    permission_classes = [IsAuthenticated]
     def get(self, request):
+        user=request.user
         authority = request.GET.get("Authority")
         status_query = request.GET.get("Status")
         order_id = request.GET.get("order_id")
