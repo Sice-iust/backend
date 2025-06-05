@@ -323,7 +323,7 @@ class AdminFilterProduct(ListAPIView):
 
 class AdminProductView(APIView):
     serializer_class = AdminProductSerializer
-    parser_classes = [MultiPartParser, FormParser]
+    # parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, IsAdminGroupUser]
 
 
