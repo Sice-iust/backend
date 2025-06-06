@@ -134,7 +134,7 @@ class AdminProductSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     category = serializers.CharField(source="category.category", read_only=True)
     box_color = serializers.CharField(source="category.box_color", read_only=True)
-    category_id = serializers.IntegerField(write_only=True)
+    category_id = serializers.IntegerField(write_only=True, required=False)
     new_photo = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
@@ -176,6 +176,29 @@ class AdminProductSerializer(serializers.ModelSerializer):
             validated_data["photo"] = new_photo
 
         return Product.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        category_id = validated_data.pop("category_id", None)
+        new_photo = validated_data.pop("new_photo", None)
+
+        if category_id:
+            try:
+                category = Category.objects.get(id=category_id)
+                instance.category = category
+                instance.color = category.box_color
+            except Category.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"category_id": "Invalid category ID"}
+                )
+
+        if new_photo:
+            instance.photo = new_photo
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
 
 
 class CategoryNameSerializer(serializers.ModelSerializer):
