@@ -22,10 +22,13 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.parsers import MultiPartParser, FormParser
 from wallet.models import UserWallet
+from django.shortcuts import get_object_or_404
+from .ratetimes import *
 
-class SendOTPView(APIView):
+
+class SendOTPView(RateTimeBaseView,APIView):
     serializer_class = SendOTPSerializer
-
+    ratetime_class = [ThreePerMinuteLimit]
     def post(self, request):
         serializer = SendOTPSerializer(data=request.data)
         if serializer.is_valid():
@@ -57,8 +60,9 @@ class SendOTPView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class LoginVerifyOTPView(APIView):
+class LoginVerifyOTPView(RateTimeBaseView,APIView):
     serializer_class = LoginVerifyOTPSerializer
+    ratetime_class = [ThreePerMinuteLimit]
     def post(self, request):
         serializer = LoginVerifyOTPSerializer(data=request.data)
         if serializer.is_valid():
@@ -66,26 +70,29 @@ class LoginVerifyOTPView(APIView):
             user = User.objects.filter(phonenumber=phone).last()
             if not user:
                 return Response({"message":"you are not registered."})
-            otp_saved = Otp.objects.filter(phonenumber=phone).last()
-            if not otp_saved:
-                return Response({"message":"OTP is used or expired."})
-            if not otp_saved.is_otp_valid():
-                return Response({"message":"OTP expired, request a new one."})
-            if otp_saved.otp != serializer.validated_data["otp"]:
-                return Response("Invalid OTP.")
+            # otp_saved = Otp.objects.filter(phonenumber=phone).last()
+            # if not otp_saved:
+            #     return Response({"message":"OTP is used or expired."})
+            # if not otp_saved.is_otp_valid():
+            #     return Response({"message":"OTP expired, request a new one."})
+            # if otp_saved.otp != serializer.validated_data["otp"]:
+            #     return Response("Invalid OTP.")
             login(request, user)
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
             Otp.objects.filter(phonenumber=phone).delete()
+            is_admin = Group.objects.filter(name="Admin", custom_user_set=user).exists()
             return Response(
                 {
                     "message": "Login successful",
                     "access_token": str(access_token),
                     "refresh_token": str(refresh),
+                    "is_admin": is_admin,
                 },
                 status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class SignUpVerifyOTPView(APIView):
     serializer_class = SignUPVerifyOTPSerializer
@@ -131,11 +138,12 @@ class ProfileView(APIView):
         serializer = self.serializer_class(user, context={"request": request})
         return Response(serializer.data)
 
-class UpdateProfileView(APIView):
+
+class UpdateProfileView(RateTimeBaseView,APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
     serializer_class = UpdateProfileSerializer
-
+    ratetime_class = [GetAndPostLimit]
     def put(self, request):
         user = request.user
         serializer = self.serializer_class(
@@ -207,6 +215,13 @@ class SingleLocationView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LocationSerializer
 
+    def get(self, request, id):
+        user = request.user
+        location = get_object_or_404(
+            Location, id=id, user=user
+        )  
+        serializer = LocationSerializer(location)
+        return Response(serializer.data)
 
     def put(self, request, id):
         user = request.user

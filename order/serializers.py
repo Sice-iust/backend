@@ -17,10 +17,12 @@ from datetime import datetime
 
 User = get_user_model()
 
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model=User
-        fields=['username','phonenumber']
+        model = User
+        fields = ["username", "phonenumber"]
+
 
 class UserDiscountSerializer(serializers.ModelSerializer):
 
@@ -41,14 +43,28 @@ class LocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Location
-        fields = ["user", "address", "name","home_floor","home_unit","home_plaque"]
+        fields = ["user", "address", "name", "home_floor", "home_unit", "home_plaque"]
+
+
+import jdatetime
+from rest_framework import serializers
+from .models import DeliverySlots
+
+PERSIAN_WEEKDAYS = ["شنبه", "یک‌شنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه"]
 
 
 class DeliverySlotSerializer(serializers.ModelSerializer):
+    day_name = serializers.SerializerMethodField()
 
     class Meta:
         model = DeliverySlots
         fields = "__all__"
+
+    def get_day_name(self, obj):
+        if obj.delivery_date:
+            jdate = jdatetime.date.fromgregorian(date=obj.delivery_date)
+            return PERSIAN_WEEKDAYS[jdate.weekday()]
+        return None
 
 
 class DeliverySlotsByDaySerializer(serializers.Serializer):
@@ -57,7 +73,7 @@ class DeliverySlotsByDaySerializer(serializers.Serializer):
 
 
 class FinalizeOrderSerializer(serializers.Serializer):
-    location_id=serializers.IntegerField(write_only=True)
+    location_id = serializers.IntegerField(write_only=True)
     deliver_time = serializers.IntegerField()
     discription = serializers.CharField(required=False, allow_blank=True)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -70,10 +86,11 @@ class FinalizeOrderSerializer(serializers.Serializer):
 
 
 class MyOrderSerializer(serializers.ModelSerializer):
-    delivery=DeliverySlotSerializer()
+    delivery = DeliverySlotSerializer()
     location = LocationSerializer()
+
     class Meta:
-        model=Order
+        model = Order
         fields = [
             "id",
             "location",
@@ -85,12 +102,15 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "delivered_at",
             "reciver",
             "reciver_phone",
+            "is_admin_canceled",
+            "admin_reason",
+            "is_archive",
         ]
 
 
 class MyOrderItemSerializer(serializers.ModelSerializer):
-    order=MyOrderSerializer()
-    product=ProductCartSerializer()
+    order = MyOrderSerializer()
+    product = ProductCartSerializer()
 
     class Meta:
         model = OrderItem
@@ -101,6 +121,7 @@ class DiscountCartSerializer(serializers.ModelSerializer):
     phonenumber = serializers.CharField(write_only=True)
     product_name = serializers.CharField(write_only=True)
     product = ProductDiscountSerializer(read_only=True)
+
     class Meta:
         model = DiscountCart
         fields = [
@@ -116,7 +137,7 @@ class DiscountCartSerializer(serializers.ModelSerializer):
             "expired_time",
             "payment_without_discount",
         ]
-        read_only_fields = ["text"] 
+        read_only_fields = ["text"]
 
     def create(self, validated_data):
         phone = validated_data.pop("phonenumber")
@@ -159,8 +180,30 @@ class DiscountCartSerializer(serializers.ModelSerializer):
 
         return representation
 
+
 class OrderInvoiceSerializer(serializers.ModelSerializer):
     product = ProductCartSerializer()
+
     class Meta:
-        model=OrderItem
+        model = OrderItem
         fields = ["product", "quantity"]
+
+
+class AdminCancelSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+    reason = serializers.CharField()
+
+
+class AdminArchiveSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+
+
+class StatusSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+    status = serializers.IntegerField()
+
+
+class OrderIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ["id"]
