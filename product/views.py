@@ -316,7 +316,7 @@ class AdminFilterProduct(ListAPIView):
     queryset = Product.objects.all()
     filter_backends = [DjangoFilterBackend]
     filterset_class = ProductFilter
-    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    # permission_classes = [IsAuthenticated, IsAdminGroupUser]
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
