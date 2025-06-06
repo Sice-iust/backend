@@ -15,6 +15,7 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from django.utils import timezone
 from rest_framework import status
+from users.permissions import IsAdminGroupUser
 
 User = get_user_model()
 
@@ -80,7 +81,9 @@ class SingleCartView(APIView):
                 return Response(
                     {"error": "You already have this product in your cart"}, status=400
                 )
-
+            # if product.stock<quantity:
+            #     return Response({"error":"This Product is full."}, status=400
+            #     )
             new_cart = CartItem.objects.create(
                 user=user, product=product, quantity=quantity
             )
@@ -116,6 +119,8 @@ class SingleModifyCartView(APIView):
             )
         quen=cart.quantity
         if update_mode=='add':
+            # if product.stock<=0:
+            #     return Response({"error":"This product is full."})
             cart.quantity += 1
             cart.save()
             return Response({"success": "Cart updated"}, status=200)
@@ -126,7 +131,9 @@ class SingleModifyCartView(APIView):
             cart.save()
             return Response({"success": "Cart updated"}, status=200)
 
-        return Response(serializer.errors, status=400)
+        return Response(
+            {"error": "Invalid update mode. Use 'add' or 'delete'."}, status=400
+        )
 
     def delete(self, request, id):
         user = request.user
