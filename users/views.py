@@ -81,11 +81,13 @@ class LoginVerifyOTPView(RateTimeBaseView,APIView):
             refresh = RefreshToken.for_user(user)
             access_token = refresh.access_token
             Otp.objects.filter(phonenumber=phone).delete()
+            is_admin = Group.objects.filter(name="Admin", custom_user_set=user).exists()
             return Response(
                 {
                     "message": "Login successful",
                     "access_token": str(access_token),
                     "refresh_token": str(refresh),
+                    "is_admin": is_admin,
                 },
                 status=status.HTTP_200_OK,
             )
