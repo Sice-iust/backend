@@ -51,6 +51,12 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.price - (obj.price * obj.discount / 100)
         return obj.price
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get("average_rate") is not None:
+            data["average_rate"] = round(float(data["average_rate"]), 1)
+        return data
+
 
 class ProductRateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -199,6 +205,12 @@ class AdminProductSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get("average_rate") is not None:
+            data["average_rate"] = round(float(data["average_rate"]), 1)
+        return data
 
 
 class CategoryNameSerializer(serializers.ModelSerializer):
