@@ -23,6 +23,15 @@ from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import status
 from payment.models import ZarinpalTransaction
+from django.db.models import Q
+from .filters import OrderFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics
+from users.permissions import IsAdminGroupUser
+from users.ratetimes import *
+
+from django.shortcuts import redirect
+
 class MyDiscountView(APIView):
     serializer_class = DiscountCartSerializer
     permission_classes = [IsAuthenticated]
@@ -53,13 +62,9 @@ class MyDiscountView(APIView):
 class AdminDiscountView(APIView):
     serializer_class = DiscountCartSerializer
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
 
     def get(self, request):
-
-        admin_group = Group.objects.get(name="Admin")
-        if admin_group not in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
         discounts = DiscountCart.objects.all()
 
         serializer = self.serializer_class(discounts, many=True)
@@ -79,11 +84,8 @@ class AdminDiscountView(APIView):
 
 class SingleDiscountCartView(APIView):
     serializer_class = DiscountCartSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
     def put(self,request,id):
-        admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
         discount = get_object_or_404(DiscountCart, id=id)
         serializer = self.serializer_class(discount, data=request.data, partial=True)
         if serializer.is_valid():
@@ -95,9 +97,6 @@ class SingleDiscountCartView(APIView):
         return Response(serializer.errors, status=400)
 
     def delete(self, request, id):
-        admin_group = Group.objects.get(name="Admin")
-        if admin_group not in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
         discount = get_object_or_404(DiscountCart, id=id)
         discount.delete()
         return Response({"message": "Discount deleted successfully"}, status=200)
@@ -105,8 +104,9 @@ class SingleDiscountCartView(APIView):
 from django.http import HttpResponseRedirect
 
 
-class SubmitOrderView(APIView):
+class SubmitOrderView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
+    ratetime_class = [ThreePerMinuteLimit]
     serializer_class = FinalizeOrderSerializer
 
     def post(self, request):
@@ -119,8 +119,13 @@ class SubmitOrderView(APIView):
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
+        reciver=user.username
+        reciver_phone = user.phonenumber
+        if data.get("reciver") and data.get("reciver") != "string":
+            reciver = data.get("reciver")
+        if data.get("reciver_phone") and data.get("reciver_phone") != "string" :
+            reciver_phone = data.get("reciver_phone")
 
-        # پیدا کردن location و delivery
         try:
             location = Location.objects.get(id=data["location_id"])
             delivery = DeliverySlots.objects.get(id=data["deliver_time"])
@@ -150,14 +155,14 @@ class SubmitOrderView(APIView):
                     location=location,
                     user=user,
                     delivery=delivery,
-                    discription=data.get("discription", ""),
+                    description=data["description"],
                     total_price=data["total_price"],
                     profit=data["profit"],
                     status=1,
                     discount=discount,
                     pay_status="pending",
-                    reciver=data.get("reciver",""),
-                    reciver_phone=data.get("reciver_phone",""),
+                    reciver=reciver,
+                    reciver_phone=reciver_phone,
                 )
 
                 for item in cart_items:
@@ -200,11 +205,12 @@ class SubmitOrderView(APIView):
     def _has_sufficient_stock(self, item):
         return item.product.stock >= item.quantity
 
-from django.shortcuts import redirect
 
-
-class ZarinpalVerifyView(APIView):
+class ZarinpalVerifyView(RateTimeBaseView, APIView):
+    ratetime_class = [ThreePerMinuteLimit]
+    # permission_classes = [IsAuthenticated]
     def get(self, request):
+        user=request.user
         authority = request.GET.get("Authority")
         status_query = request.GET.get("Status")
         order_id = request.GET.get("order_id")
@@ -213,8 +219,7 @@ class ZarinpalVerifyView(APIView):
             transaction = ZarinpalTransaction.objects.get(authority=authority)
             order = Order.objects.get(id=order_id)
         except (ZarinpalTransaction.DoesNotExist, Order.DoesNotExist):
-            return redirect("https://nanzi-amber.vercel.app/")
-
+            return Response({"message": "NOK"})
         zarinpal = ZarinpalPayment(callback_url="")  
 
         result = zarinpal.verify(
@@ -223,22 +228,23 @@ class ZarinpalVerifyView(APIView):
             merchant_id=settings.MERCHANT_ID,
             amount=transaction.amount,
         )
-
+        # DeliverySlots.objects.filter(user=user).delete()
         if result.status_code == 200:
             order.pay_status = "paid"
             # order.status = 2
             order.save()
-            return redirect("https://nanzi-amber.vercel.app/ProfilePage/OrdersPage")
+            return Response({"message":"OK"})
         else:
             order.pay_status = "failed"
             order.status = 0
             order.save()
-            return redirect("https://nanzi-amber.vercel.app/")
+            return Response({"message": "NOK"})
 
 
 class OrderView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MyOrderItemSerializer
+    
 
     def get(self, request):
         user = request.user
@@ -258,13 +264,10 @@ class OrderView(APIView):
 
 
 class AllOrderView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
     serializer_class = MyOrderItemSerializer
 
     def get(self, request):
-        admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
         user = request.user
         current_orders = OrderItem.objects.filter(order__status__lt=4)
         past_orders = OrderItem.objects.filter(order__status__gte=4)
@@ -287,6 +290,7 @@ class OrderInvoiceView(APIView):
 
     def get(self, request, id):
         user = request.user
+        # this is a authentical problem IDOR
         order = get_object_or_404(Order, id=id, user=user)
         if order.pay_status!='paid':
             return Response({"this is failed."})
@@ -300,7 +304,7 @@ class OrderInvoiceView(APIView):
 
         return Response(
             {
-                "payment": total_price + discount - shipping_fee,
+                "payment": total_price - discount + shipping_fee,
                 "shipping_fee": shipping_fee,
                 "discount": discount,
                 "items": serializer.data,
@@ -336,16 +340,10 @@ class DeliverSlotView(APIView):
 
 
 class AdminDeliverySlot(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
     serializer_class = DeliverySlotSerializer
 
-    def check_admin(self, request):
-        admin_group = Group.objects.get(name="Admin")
-        return admin_group in request.user.groups.all()
-
     def post(self, request):
-        if not self.check_admin(request):
-            return Response({"message": "Permission denied"}, status=403)
 
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -355,16 +353,10 @@ class AdminDeliverySlot(APIView):
 
 
 class SingleAdminDeliverySlot(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
     serializer_class = DeliverySlotSerializer
 
-    def check_admin(self, request):
-        admin_group = Group.objects.get(name="Admin")
-        return admin_group in request.user.groups.all()
-
     def put(self, request, pk):
-        if not self.check_admin(request):
-            return Response({"message": "Permission denied"}, status=403)
 
         try:
             slot = DeliverySlots.objects.get(pk=pk)
@@ -378,12 +370,153 @@ class SingleAdminDeliverySlot(APIView):
         return Response(serializer.errors, status=400)
 
     def delete(self, request, pk):
-        if not self.check_admin(request):
-            return Response({"message": "Permission denied"}, status=403)
-
         try:
             slot = DeliverySlots.objects.get(pk=pk)
             slot.delete()
             return Response({"message": "Slot deleted"})
         except DeliverySlots.DoesNotExist:
             return Response({"message": "Slot not found"}, status=404)
+
+
+class AdminDeliveredOrder(APIView):
+    serializer_class = MyOrderSerializer
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    def get(self, request):
+
+        orders = Order.objects.filter(Q(status__gt=1) | Q(is_admin_canceled=True)|Q (is_archive=True))
+        serializer = self.serializer_class(orders, many=True)
+        return Response(serializer.data)
+
+class AdminProcessing(APIView):
+    serializer_class = MyOrderSerializer
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+
+    def get(self, request):
+
+        orders = Order.objects.filter(status=1,is_admin_canceled=False,is_archive=False,pay_status="paid")
+        serializer = self.serializer_class(orders, many=True)
+        return Response(serializer.data)
+
+class AdminCancleView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    serializer_class = AdminCancelSerializer
+
+    def post(self, request):
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            order = get_object_or_404(Order, id=data["order_id"])
+
+            order.is_admin_canceled = True
+            order.admin_reason = data["reason"]
+            order.save()
+
+            return Response({"message": "Order marked as admin-canceled successfully."})
+
+        return Response(serializer.errors, status=400)
+
+
+class AdminArchiveView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    serializer_class = AdminArchiveSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+            order = get_object_or_404(Order, id=data["order_id"])
+            order.is_archive = True
+            order.save()
+
+            return Response({"message": "Order marked as is_archive successfully."})
+
+        return Response(serializer.errors, status=400)
+
+
+class ChangeStatusView(RateTimeBaseView, APIView):
+    permission_classes = [IsAuthenticated]
+    ratetime_class = [GetOnlyLimit]
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                description="Enter status number (1-4)",
+                required=True,
+                type=int,
+            ),
+        ]
+    )
+    def get(self, request, id):
+        user=request.user
+        status_param = request.query_params.get("status")
+
+        if not status_param:
+            return Response(
+                {"error": "status parameter is required."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            new_status = int(status_param)
+        except ValueError:
+            return Response({"error": "status must be an integer."}, status=400)
+
+        if new_status < 1 or new_status > 4:
+            return Response({"error": "status must be between 1 and 4."}, status=400)
+
+        try:
+            order = Order.objects.get(id=id,user=user)
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found."}, status=404)
+
+        if order.status > new_status:
+            return Response({"error": "Cannot downgrade order status."}, status=400)
+
+        order.status = new_status
+        order.save()
+
+        return Response({"message": "Order status updated successfully."})
+
+
+class OrderIdView(APIView):
+    serializer_class = OrderIdSerializer
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    def get(self, request):
+
+        orders = Order.objects.all()
+        serializer = self.serializer_class(orders, many=True)
+        return Response({"id": serializer.data})
+
+
+class OrderListView(generics.ListAPIView):
+    queryset = Order.objects.select_related("delivery", "user").all()
+    serializer_class = MyOrderSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+
+
+class AdminOrderInvoiceView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    def get(self, request,id):
+        
+        order = get_object_or_404(Order, id=id)
+        if order.pay_status != "paid":
+            return Response({"this is failed."})
+        invoices = OrderItem.objects.filter(order=order)
+        serializer = OrderInvoiceSerializer(
+            invoices, many=True, context={"request": request}
+        )
+        total_price = order.total_price or Decimal("0")
+        discount = order.profit or Decimal("0")
+        shipping_fee = order.delivery.shipping_fee or Decimal("0")
+
+        return Response(
+            {
+                "payment": total_price - discount + shipping_fee,
+                "shipping_fee": shipping_fee,
+                "discount": discount,
+                "items": serializer.data,
+            }
+        )

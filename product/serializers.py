@@ -18,7 +18,8 @@ class ProductSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
     discounted_price = serializers.SerializerMethodField()
     subcategories = SubcategorySerializer(many=True, required=False)
-
+    category = serializers.CharField(source="category.category", read_only=True)
+    box_color = serializers.CharField(source="category.box_color", read_only=True)
     class Meta:
         model = Product
         fields = [
@@ -50,18 +51,11 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.price - (obj.price * obj.discount / 100)
         return obj.price
 
-    def create(self, validated_data):
-        subcategories_data = validated_data.pop("subcategories", [])
-        product = Product.objects.create(**validated_data)
-        existing_subcategories = set()
-        for subcategory in subcategories_data:
-            subcategory_value = subcategory["subcategory"]
-            if subcategory_value not in existing_subcategories:
-                Subcategory.objects.create(
-                    product=product, subcategory=subcategory_value
-                )
-                existing_subcategories.add(subcategory_value)
-        return product
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get("average_rate") is not None:
+            data["average_rate"] = round(float(data["average_rate"]), 1)
+        return data
 
 
 class ProductRateSerializer(serializers.ModelSerializer):
@@ -92,6 +86,8 @@ class ProductCartSerializer(serializers.ModelSerializer):
 
 class SummerizedProductCartSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField("get_image")
+
+    box_color = serializers.CharField(source="category.box_color", read_only=True)
     class Meta:
         model = Product
         fields = [
@@ -131,10 +127,106 @@ class ProductCommentSerializer(serializers.ModelSerializer):
         if not validated_data['user'] or not validated_data['product']:
             raise serializers.ValidationError("User and product must be provided in context.")
         return super().create(validated_data)
-    
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['user_name'] = instance.user.username
         data['suggested_label'] = instance.suggested
         data['posted_at'] = instance.posted_at
         return data
+
+
+class AdminProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    category = serializers.CharField(source="category.category", read_only=True)
+    box_color = serializers.CharField(source="category.box_color", read_only=True)
+    category_id = serializers.IntegerField(write_only=True, required=False)
+    new_photo = serializers.ImageField(write_only=True, required=False)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "new_photo",
+            "category",
+            "name",
+            "price",
+            "stock",
+            "box_type",
+            "box_color",
+            "color",
+            "image",
+            "average_rate",
+            "discount",
+            "category_id",
+            "description",
+        ]
+
+    def get_image(self, obj):
+        if obj.photo and hasattr(obj.photo, "url"):
+            return self.context["request"].build_absolute_uri(obj.photo.url)
+        return None
+
+    def create(self, validated_data):
+        category_id = validated_data.pop("category_id")
+        new_photo = validated_data.pop("new_photo", None)
+
+        try:
+            category = Category.objects.get(id=category_id)
+        except Category.DoesNotExist:
+            raise serializers.ValidationError({"category_id": "Invalid category ID"})
+
+        validated_data["category"] = category
+        validated_data["color"] = category.box_color
+        if new_photo:
+            validated_data["photo"] = new_photo
+
+        return Product.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        category_id = validated_data.pop("category_id", None)
+        new_photo = validated_data.pop("new_photo", None)
+
+        if category_id:
+            try:
+                category = Category.objects.get(id=category_id)
+                instance.category = category
+                instance.color = category.box_color
+            except Category.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"category_id": "Invalid category ID"}
+                )
+
+        if new_photo:
+            instance.photo = new_photo
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get("average_rate") is not None:
+            data["average_rate"] = round(float(data["average_rate"]), 1)
+        return data
+
+
+class CategoryNameSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField()
+    class Meta:
+        model=Category
+        fields = ["category", "id", "box_color","photo"]
+
+    def get_photo(self, obj):
+        if obj.photo and hasattr(obj.photo, "url"):
+            return self.context["request"].build_absolute_uri(obj.photo.url)
+        return None
+
+
+class CategoryCreationSerializer(serializers.ModelSerializer):
+    photo = serializers.ImageField(write_only=True, required=False)
+    class Meta:
+        model=Category
+        fields=['category','photo','box_color']

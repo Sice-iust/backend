@@ -2,7 +2,7 @@ from rest_framework.test import APITestCase
 from django.urls import reverse
 from rest_framework import status
 from decimal import Decimal
-from .models import Product, Subcategory,Rate, ProductComment
+from .models import Product, Subcategory, Rate, ProductComment
 from .serializers import ProductCommentSerializer
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
@@ -468,7 +468,7 @@ class SingleRateViewAPITestCase(APITestCase):
         self.client.credentials()
         response = self.client.post(self.url, {"rate": "5"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        
+
 class ProductCommentViewsTestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -554,7 +554,6 @@ class ProductCommentViewsTestCase(APITestCase):
         response = self.client.post(self.comment_url, data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-
     def test_serializer_without_context_fails_gracefully(self):
         data = {"comment": "Test", "suggested": 1}
         serializer = ProductCommentSerializer(data=data)
@@ -598,9 +597,8 @@ class ProductCommentViewsTestCase(APITestCase):
         response = self.client.post(self.comment_url, data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-
     def test_post_comment_with_long_text(self):
-        long_comment = "عالی " * 200 
+        long_comment = "عالی " * 200
         response = self.client.post(self.comment_url, {
             "comment": long_comment,
             "suggested": ProductComment.SUGGESTED
@@ -619,7 +617,7 @@ class ProductCommentViewsTestCase(APITestCase):
     def test_post_comment_with_invalid_suggested_value(self):
         response = self.client.post(self.comment_url, {
             "comment": "محصول خوبیه",
-            "suggested": 999  
+            "suggested": 999
         })
         self.assertEqual(response.status_code, 400)
 
@@ -645,3 +643,247 @@ class ProductCommentViewsTestCase(APITestCase):
         self.assertEqual(response.data[0]["rating"], 4)
         self.assertEqual(response.data[0]["user_name"], self.user.username)
         self.assertIn("posted_at", response.data[0])
+
+
+class ProductListViewsTestCase(APITestCase):
+    def setUp(self):
+
+        self.product1 = Product.objects.create(
+            category="sangak",
+            name="Bread A",
+            price=Decimal("30.00"),
+            description="Bread A desc",
+            stock=5,
+            box_type=1,
+            box_color="White",
+            color="Brown",
+            discount=Decimal("5.00"),
+            average_rate=Decimal("3.5"),
+        )
+        self.product2 = Product.objects.create(
+            category="barbari",
+            name="Bread B",
+            price=Decimal("40.00"),
+            description="Bread B desc",
+            stock=7,
+            box_type=2,
+            box_color="Red",
+            color="Yellow",
+            discount=Decimal("15.00"),
+            average_rate=Decimal("4.8"),
+        )
+        self.product3 = Product.objects.create(
+            category="taftoon",
+            name="Bread C",
+            price=Decimal("50.00"),
+            description="Bread C desc",
+            stock=3,
+            box_type=2,
+            box_color="Blue",
+            color="Green",
+            discount=Decimal("10.00"),
+            average_rate=Decimal("4.0"),
+        )
+
+    def test_popular_product_view_status_and_order(self):
+        url = reverse("popular-products")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        names_ordered = [item["name"] for item in response.data]
+        self.assertEqual(names_ordered, ["Bread B", "Bread C", "Bread A"])
+
+    def test_discount_product_view_status_and_order(self):
+        url = reverse("discount-products")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+
+        names_ordered = [item["name"] for item in response.data]
+        self.assertEqual(names_ordered, ["Bread B", "Bread C", "Bread A"])
+
+    def test_all_product_view_status_and_content(self):
+        url = reverse("all-products")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        returned_names = {item["name"] for item in response.data}
+        expected_names = {"Bread A", "Bread B", "Bread C"}
+        self.assertSetEqual(returned_names, expected_names)
+
+    def test_popular_view_empty(self):
+        Product.objects.all().delete()
+        url = reverse("popular-products")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_discount_view_empty(self):
+        Product.objects.all().delete()
+        url = reverse("discount-products")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_all_products_view_empty(self):
+        Product.objects.all().delete()
+        url = reverse("all-products")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_all_product_view_includes_new_product(self):
+        new_product = Product.objects.create(
+            category="barbari",
+            name="Bread New",
+            price=Decimal("60.00"),
+            description="New product",
+            stock=6,
+            box_type=1,
+            box_color="Green",
+            color="White",
+            discount=Decimal("8.00"),
+            average_rate=Decimal("4.2"),
+        )
+        url = reverse("all-products")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        names = [item["name"] for item in response.data]
+        self.assertIn("Bread New", names)
+
+    def test_discount_view_with_zero_discount(self):
+        product_zero_discount = Product.objects.create(
+            category="taftoon",
+            name="Bread Zero",
+            price=Decimal("20.00"),
+            description="No discount",
+            stock=5,
+            box_type=1,
+            box_color="Gray",
+            color="Black",
+            discount=Decimal("0.00"),
+            average_rate=Decimal("3.0"),
+        )
+
+        url = reverse("discount-products")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Bread Zero", [item["name"] for item in response.data])
+        self.assertEqual(response.data[-1]["name"], "Bread Zero")
+
+    def test_popular_view_with_equal_average_rates(self):
+        self.product1.average_rate = Decimal("4.5")
+        self.product2.average_rate = Decimal("4.5")
+        self.product3.average_rate = Decimal("4.0")
+        self.product1.save()
+        self.product2.save()
+        self.product3.save()
+
+        url = reverse("popular-products")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        names_ordered = [item["name"] for item in response.data]
+        self.assertIn("Bread A", names_ordered)
+        self.assertIn("Bread B", names_ordered)
+        self.assertIn("Bread C", names_ordered)
+        self.assertEqual(len(response.data), 3)
+
+
+class CategoryBoxViewTests(APITestCase):
+    def setUp(self):
+        Product.objects.create(
+            name="Test Bread 1",
+            price=10000,
+            stock=10,
+            description="Test product",
+            color="Brown",
+            box_color="White",
+            category="نان بربری",
+            box_type=1,
+        )
+
+        Product.objects.create(
+            name="Test Bread 2",
+            price=12000,
+            stock=5,
+            description="Another test product",
+            color="Golden",
+            box_color="Brown",
+            category="نان سنگک",
+            box_type=2,
+        )
+        self.url = reverse("category-box")
+
+    def test_valid_request_returns_products(self):
+        response = self.client.get(f"{self.url}?category=1&box_type=1")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+        self.assertEqual(len(response.data), 1)
+
+    def test_valid_request_with_no_matching_products(self):
+        response = self.client.get(f"{self.url}?category=3&box_type=4")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_missing_parameters_returns_error(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_missing_category_returns_error(self):
+        response = self.client.get(f"{self.url}?box_type=1")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_missing_box_type_returns_error(self):
+        response = self.client.get(f"{self.url}?category=1")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_non_integer_category_returns_error(self):
+        response = self.client.get(f"{self.url}?category=abc&box_type=1")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_non_integer_box_type_returns_error(self):
+        response = self.client.get(f"{self.url}?category=1&box_type=xyz")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_invalid_category_number_returns_error(self):
+        response = self.client.get(f"{self.url}?category=99&box_type=1")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_invalid_box_type_value_returns_error(self):
+        response = self.client.get(f"{self.url}?category=1&box_type=3")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_multiple_matching_products(self):
+        Product.objects.create(
+            name="Another Bread",
+            price=13000,
+            stock=6,
+            description="Second match",
+            color="Light brown",
+            box_color="White",
+            category="نان بربری",
+            box_type=1,
+        )
+        response = self.client.get(f"{self.url}?category=1&box_type=1")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_boundary_category_zero_returns_error(self):
+        response = self.client.get(f"{self.url}?category=0&box_type=1")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+    def test_boundary_category_seven_returns_error(self):
+        response = self.client.get(f"{self.url}?category=7&box_type=1")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
