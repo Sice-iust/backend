@@ -378,16 +378,20 @@ class CategoryNameView(APIView):
     def get(self, request):
 
         categories = Category.objects.all().order_by("id")
-        serializer = self.serializer_class(categories, many=True)
+        serializer = self.serializer_class(
+            categories, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
 
 class CategoryCreationView(APIView):
     permission_classes = [IsAuthenticated, IsAdminGroupUser]
     serializer_class = CategoryCreationSerializer
-    parser_classes = [MultiPartParser, FormParser]
+
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
         if serializer.is_valid():
             data = serializer.validated_data
             serializer.save(photo=data.get("photo"))
@@ -398,7 +402,7 @@ class CategoryCreationView(APIView):
 class CategoryModifyView(APIView):
     permission_classes = [IsAuthenticated, IsAdminGroupUser]
     serializer_class = CategoryCreationSerializer
-    parser_classes = [MultiPartParser, FormParser]
+
     def get_object(self, id):
         try:
             return Category.objects.get(id=id)
@@ -412,8 +416,9 @@ class CategoryModifyView(APIView):
                 {"message": "Category not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-
-        serializer = self.serializer_class(category, data=request.data, partial=True)
+        serializer = self.serializer_class(
+            category, data=request.data, partial=True, context={"request": request}
+        )
         if serializer.is_valid():
             data = serializer.validated_data
             serializer.save(photo=data.get("photo"))
