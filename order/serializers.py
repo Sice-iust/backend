@@ -147,7 +147,7 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "total_price",
             "status",
             "profit",
-            "discription",
+            "description",
             "delivered_at",
             "reciver",
             "reciver_phone",
