@@ -214,9 +214,15 @@ class AdminProductSerializer(serializers.ModelSerializer):
 
 
 class CategoryNameSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField()
     class Meta:
         model=Category
-        fields = ["category", "id", "box_color"]
+        fields = ["category", "id", "box_color","photo"]
+
+    def get_photo(self, obj):
+        if obj.photo and hasattr(obj.photo, "url"):
+            return self.context["request"].build_absolute_uri(obj.photo.url)
+        return None
 
 
 class CategoryCreationSerializer(serializers.ModelSerializer):
