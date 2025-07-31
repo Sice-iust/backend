@@ -229,7 +229,7 @@ class CategoryView(APIView):
         if not category_name:
             return Response({"error": "Invalid category number"}, status=400)
 
-        items = Product.objects.filter(category__category=category_name)
+        items = Product.objects.filter(category=category_name)
         serializer = self.serializer_class(
             items, many=True, context={"request": request}
         )
@@ -293,7 +293,7 @@ class CategoryBoxView(APIView):
             )
 
         products = Product.objects.filter(
-            category__category=category_name, box_type=box
+            category=category_name, box_type=box
         )
         serializer = self.serializer_class(
             products, many=True, context={"request": request}
