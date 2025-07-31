@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework.test import APITestCase, APIClient
 from django.contrib.auth import get_user_model
-from product.models import Product
+from product.models import Product,Category
 from .models import CartItem, DeliveryCart
 from order.models import DeliverySlots
 from decimal import Decimal
@@ -22,6 +22,8 @@ class CartViewTests(APITestCase):
             email="fati@gmail.com",
             phonenumber="+989034488755"
         )
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         refresh = RefreshToken.for_user(self.user)
         access_token = str(refresh.access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
@@ -29,7 +31,7 @@ class CartViewTests(APITestCase):
             name="Test Bread",
             price=10000,
             discount=10,  
-            category="نان بربری",
+            category=self.category,
             box_type=4,
         )
         self.url = reverse("cart")
@@ -47,7 +49,7 @@ class CartViewTests(APITestCase):
 
     def test_cart_with_one_item_no_discount(self):
         """One cart item with no discount"""
-        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category="نان بربری")
+        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category=self.category)
         CartItem.objects.create(user=self.user, product=product, quantity=2)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
@@ -57,7 +59,7 @@ class CartViewTests(APITestCase):
 
     def test_cart_with_discounted_item(self):
         """Cart item with 10% discount"""
-        product = Product.objects.create(name="Bread", price=100, discount=10, box_type=1, category="نان بربری")
+        product = Product.objects.create(name="Bread", price=100, discount=10, box_type=1, category=self.category)
         CartItem.objects.create(user=self.user, product=product, quantity=3)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
@@ -66,8 +68,8 @@ class CartViewTests(APITestCase):
 
     def test_cart_with_multiple_items(self):
         """Cart with multiple products with and without discount"""
-        p1 = Product.objects.create(name="A", price=100, discount=10, box_type=1, category="نان بربری")
-        p2 = Product.objects.create(name="B", price=200, discount=0, box_type=2, category="نان سنگک")
+        p1 = Product.objects.create(name="A", price=100, discount=10, box_type=1, category=self.category)
+        p2 = Product.objects.create(name="B", price=200, discount=0, box_type=2, category=self.category2)
         CartItem.objects.create(user=self.user, product=p1, quantity=2)  # 200 - 20
         CartItem.objects.create(user=self.user, product=p2, quantity=1)  # 200
         response = self.client.get(self.url)
@@ -77,7 +79,7 @@ class CartViewTests(APITestCase):
 
     def test_cart_with_valid_delivery(self):
         """Cart with valid delivery slot"""
-        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category="نان بربری")
+        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category=self.category)
         CartItem.objects.create(user=self.user, product=product, quantity=1)
         delivery_slot = DeliverySlots.objects.create(
             start_time="10:00", end_time="12:00", delivery_date=timezone.now().date(),
@@ -90,7 +92,7 @@ class CartViewTests(APITestCase):
 
     def test_cart_with_invalid_delivery_date(self):
         """DeliveryCart exists but delivery is in the past"""
-        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category="نان بربری")
+        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category=self.category)
         CartItem.objects.create(user=self.user, product=product, quantity=1)
         delivery_slot = DeliverySlots.objects.create(
             start_time="10:00", end_time="12:00", delivery_date=timezone.now().date() - timezone.timedelta(days=1),
@@ -102,7 +104,7 @@ class CartViewTests(APITestCase):
 
     def test_cart_with_fully_booked_delivery(self):
         """DeliveryCart exists but it's full"""
-        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category="نان بربری")
+        product = Product.objects.create(name="Bread", price=100, discount=0, box_type=1, category=self.category)
         CartItem.objects.create(user=self.user, product=product, quantity=1)
         delivery_slot = DeliverySlots.objects.create(
             start_time="10:00", end_time="12:00", delivery_date=timezone.now().date(),
@@ -128,6 +130,8 @@ class SingleCartViewTests(APITestCase):
             email="testuser2@gmail.com",
             phonenumber="+989012345678",
         )
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         refresh = RefreshToken.for_user(self.user)
         self.access_token = str(refresh.access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
@@ -135,7 +139,7 @@ class SingleCartViewTests(APITestCase):
             name="Test Bread",
             price=10000,
             discount=10,
-            category="نان بربری",
+            category=self.category,
             box_type=4,
         )
         self.url = lambda product_id: reverse(
@@ -221,6 +225,8 @@ class SingleModifyCartViewTests(APITestCase):
             email="testuser@gmail.com",
             phonenumber="+989011112233",
         )
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         refresh = RefreshToken.for_user(self.user)
         self.access_token = str(refresh.access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
@@ -228,7 +234,7 @@ class SingleModifyCartViewTests(APITestCase):
             name="Test Product",
             price=20000,
             discount=5,
-            category="نان سنگک",
+            category=self.category,
             box_type=2,
         )
         self.modify_url = lambda id: reverse(
@@ -303,8 +309,10 @@ class HeaderViewTests(APITestCase):
             email="test@example.com",
             phonenumber="+989123456789",
         )
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.product = Product.objects.create(
-            name="Test Bread", price=10000, discount=0, category="نان بربری", box_type=1
+            name="Test Bread", price=10000, discount=0, category=self.category, box_type=1
         )
         self.url = reverse("header") 
 
@@ -338,12 +346,13 @@ class QuentityViewTests(APITestCase):
         refresh = RefreshToken.for_user(self.user)
         self.access_token = str(refresh.access_token)
         self.url = reverse("quentity") 
-
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.product1 = Product.objects.create(
-            name="Bread A", price=10000, discount=0, category="نان بربری", box_type=1
+            name="Bread A", price=10000, discount=0, category=self.category, box_type=1
         )
         self.product2 = Product.objects.create(
-            name="Bread B", price=20000, discount=5, category="نان سنگک", box_type=2
+            name="Bread B", price=20000, discount=5, category=self.category2, box_type=2
         )
 
     def authenticate(self):
@@ -387,7 +396,7 @@ class QuentityViewTests(APITestCase):
         self.authenticate()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
-        
+
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["product_id"], self.product2.id)
         self.assertEqual(response.data[0]["quantity"], 1)
@@ -410,5 +419,3 @@ class QuentityViewTests(APITestCase):
         self.authenticate()
         response = self.client.get(self.url)
         self.assertEqual(response.data[0]["quantity"], large_quantity)
-
- 

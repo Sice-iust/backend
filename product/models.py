@@ -5,7 +5,7 @@ User = get_user_model()
 class Category(models.Model):
     category = models.CharField(max_length=255, db_index=True)
     box_color = models.TextField(default="red")
-    photo = models.ImageField(upload_to="category")
+    photo = models.ImageField(upload_to="category",null=True,blank=True)
 
 
 class Product(models.Model):
