@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 def send_otp_sms(phone_number, otp):
-    url = "https://intlsms.Ferzz.ir/sms/send-message"
+    url = "https://intlsms.Ferzz.ir/sms/send"
     # message = f"به نانزی خوش آمدید\nکد تایید شما: {otp}"
     payload = {
-        "phone": str(format_phone_number(phone_number)),
-        "code":otp,
+        "destination": str(format_phone_number(phone_number)),
+        "code": otp,
         "token": settings.API_KEY_FERZZ,
     }
 
