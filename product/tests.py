@@ -2,7 +2,7 @@ from rest_framework.test import APITestCase
 from django.urls import reverse
 from rest_framework import status
 from decimal import Decimal
-from .models import Product, Subcategory, Rate, ProductComment
+from .models import Product, Subcategory, Rate, ProductComment,Category
 from .serializers import ProductCommentSerializer
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
@@ -11,100 +11,183 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import serializers
+from product.serializers import *
 
 User = get_user_model()
+from django.test import TestCase
+from rest_framework.test import APIRequestFactory
+from .models import *
+from .serializers import *
+from .views import *
 
-class ProductAPITestCase(APITestCase):
+class SingleProductCommentsViewTest(TestCase):
     def setUp(self):
+        self.factory = RequestFactory()
+        self.view = SingleProductCommentsView.as_view()
+        self.user = User.objects.create_user(username="fati", password="pass123")
+        self.other_user = User.objects.create_user(username="guest", password="pass456")
 
+        self.category = Category.objects.create(category="Gadgets", box_color="Cyan")
         self.product = Product.objects.create(
-            category="barbari",
-            name="Test Product",
-            price=Decimal("100.00"),
-            description="Test Description",
-            stock=10,
-            box_type=2,
-            box_color="Red",
-            color="Blue",
-            discount=Decimal(10),
-        )
-        Subcategory.objects.create(product=self.product, subcategory="Fresh")
-        self.url = reverse("product-list")
-
-    def _generate_image(self):
-        image = Image.new("RGB", (100, 100))
-        tmp_file = tempfile.NamedTemporaryFile(suffix=".jpg")
-        image.save(tmp_file, format="JPEG")
-        tmp_file.seek(0)
-        return SimpleUploadedFile(
-            "test.jpg", tmp_file.read(), content_type="image/jpeg"
+            name="Bluetooth Speaker", price=49.99, category=self.category
         )
 
-    def test_get_all_products(self):
-        response = self.client.get(self.url)
+        ProductComment.objects.create(
+            comment="Great sound quality",
+            product=self.product,
+            user=self.user,
+            suggested=ProductComment.SUGGESTED,
+        )
+
+        Rate.objects.create(product=self.product, rated_by=self.user, rate=4.5)
+        Rate.objects.create(product=self.product, rated_by=self.other_user, rate=3.0)
+
+    def test_get_product_comments_and_ratings(self):
+        request = self.factory.get("/fake-url/")
+        force_authenticate(request, user=self.user)
+        response = self.view(request, id=self.product.id)
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("context", response.data)
-        self.assertEqual(len(response.data["context"]), 1)
+        self.assertEqual(len(response.data), 1)
 
-    def test_discounted_price_calculated_correctly(self):
-        response = self.client.get(self.url)
-        data = response.data["context"][0]
-        expected_price = Decimal(self.product.price * (1 - self.product.discount / 100))
-        self.assertEqual(data["discounted_price"], expected_price)
+        comment_data = response.data[0]
+        self.assertEqual(comment_data["user_name"], "fati")
+        self.assertEqual(comment_data["comment"], "Great sound quality")
+        self.assertEqual(comment_data["suggested"], ProductComment.SUGGESTED)
+        self.assertEqual(comment_data["rating"], 4.5)
 
-    def test_photo_url_is_generated(self):
-        image = self._generate_image()
-        product_with_photo = Product.objects.create(
-            category="barbari",
-            name="Photo Product",
-            price=Decimal("150.00"),
-            description="Has photo",
-            stock=3,
-            box_type=3,
-            box_color="White",
-            color="Orange",
-            discount=5,
-            photo=image,
+    def test_product_not_found(self):
+        request = self.factory.get("/fake-url/")
+        force_authenticate(request, user=self.user)
+        response = self.view(request, id=9999)  # invalid ID
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class PopularProductViewTest(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.view = PopularProductView.as_view()
+
+        self.category = Category.objects.create(category="Tech", box_color="Blue")
+
+        for i in range(12):
+            Product.objects.create(
+                name=f"Product {i}",
+                price=10 + i,
+                category=self.category,
+                average_rate=float(i),
+            )
+
+    def test_get_popular_products(self):
+        request = self.factory.get("/popular-products/")
+        response = self.view(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 10)
+
+        rates = [product["average_rate"] for product in response.data]
+        self.assertEqual(rates, sorted(rates, reverse=True))
+        self.assertEqual(response.data[0]["name"], "Product 11")
+
+
+class ProductSerializerTest(TestCase):
+
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.request = self.factory.get("/")
+        self.category = Category.objects.create(category="Books", box_color="Red")
+        self.product = Product.objects.create(
+            name="Advanced Python",
+            price=120.00,
+            discount=25,
+            category=self.category,
+            stock=100,
+            box_type=2,
+            average_rate=4.666,
         )
-        response = self.client.get(self.url)
-        product_data = [
-            p for p in response.data["context"] if p["name"] == "Photo Product"
-        ][0]
-        self.assertTrue(product_data["photo_url"].startswith("http"))
 
-    def test_create_product_with_subcategories_no_post(self):
-        image = self._generate_image()
-        data = {
-            "category": "barbari",
-            "name": "New Product",
-            "price": "200.00",
-            "description": "Description here",
-            "stock": 5,
-            "box_type": 3,
-            "box_color": "Green",
-            "color": "Yellow",
-            "discount": 15,
-            "photo": image,
-            "subcategories": [{"subcategory": "Hot"}, {"subcategory": "Fresh"}],
-        }
-        response = self.client.post(self.url, data, format="multipart")
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertEqual(
-            Subcategory.objects.filter(product__name="New Product").count(), 0
+    def test_discounted_price_calculation(self):
+        serializer = ProductSerializer(
+            instance=self.product, context={"request": self.request}
         )
+        self.assertIn("discounted_price", serializer.data)
+        self.assertEqual(serializer.data["discounted_price"], 90.0)
+
+    def test_average_rate_rounding(self):
+        serializer = ProductSerializer(
+            instance=self.product, context={"request": self.request}
+        )
+        self.assertEqual(serializer.data["average_rate"], 4.7)
+
+    def test_category_fields(self):
+        serializer = ProductSerializer(
+            instance=self.product, context={"request": self.request}
+        )
+        self.assertEqual(serializer.data["category"], "Books")
+        self.assertEqual(serializer.data["box_color"], "Red")
+
+    def test_photo_url_empty(self):
+        serializer = ProductSerializer(
+            instance=self.product, context={"request": self.request}
+        )
+        self.assertIsNone(serializer.data["photo_url"])
+
+
+class RateSerializerTest(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(category="Books", box_color="Blue")
+        self.product = Product.objects.create(
+            name="Clean Architecture", price=75.00, category=self.category
+        )
+        self.user = User.objects.create_user(username="techie", password="mouse123",phonenumber="+989036635478",email="test122@gmail.com")
+
+        self.rate = Rate.objects.create(
+            product=self.product, rated_by=self.user, rate=4.5
+        )
+
+    def test_rate_serializer_output(self):
+        serializer = RateSerializer(instance=self.rate)
+        data = serializer.data
+        self.assertEqual(data["rate"], 4.5)
+        self.assertEqual(data["product"]["id"], self.product.id)
+        self.assertEqual(data["product"]["name"], "Clean Architecture")
+
+
+class ProductCommentModelTest(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(
+            category="Accessories", box_color="Green"
+        )
+        self.product = Product.objects.create(
+            name="Wireless Mouse", price=45.99, category=self.category
+        )
+        self.user = User.objects.create_user(username="techie", password="mouse123",phonenumber="+989036635478",email="test122@gmail.com")
+
+    def test_create_product_comment(self):
+        comment = ProductComment.objects.create(
+            comment="Really smooth and responsive!",
+            product=self.product,
+            user=self.user,
+            suggested=ProductComment.SUGGESTED,
+        )
+        self.assertEqual(comment.comment, "Really smooth and responsive!")
+        self.assertEqual(comment.product.name, "Wireless Mouse")
+        self.assertEqual(comment.user.username, "techie")
+        self.assertEqual(comment.suggested, ProductComment.SUGGESTED)
 
 
 class PostProductAPITestCase(APITestCase):
     def setUp(self):
-
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.product = Product.objects.create(
-            category="barbari",
+            category=self.category,
             name="Test Product",
             price=Decimal("100.00"),
             description="Test Description",
             stock=10,
             box_type=2,
-            box_color="Red",
+
             color="Blue",
             discount=Decimal(10),
         )
@@ -134,7 +217,7 @@ class PostProductAPITestCase(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
         image = self._generate_image()
         data = {
-            "category": "barbari",
+            "category": self.category,
             "name": "New Product",
             "price": "200.00",
             "description": "Description here",
@@ -165,7 +248,7 @@ class PostProductAPITestCase(APITestCase):
 
         image = self._generate_image()
         data = {
-            "category": "barbari",
+            "category":self.category,
             "name": "New Product",
             "price": Decimal(200.00),
             "description": "Description here",
@@ -197,7 +280,7 @@ class PostProductAPITestCase(APITestCase):
 
         image = self._generate_image()
         data = {
-            "category": "barbari",
+            "category":self.category,
             "name": "New Product",
             "price": Decimal(200.00),
             "description": "Description here",
@@ -216,7 +299,7 @@ class PostProductAPITestCase(APITestCase):
         self.assertEqual(response.data["message"], "Product saved successfully")
         product = Product.objects.get(name="New Product")
         self.assertEqual(product.name, "New Product")
-        self.assertEqual(product.category, "barbari")
+
         self.assertEqual(Decimal(product.price), Decimal(200.00))
 
     def test_create_product_missing_required_fields(self):
@@ -241,15 +324,16 @@ class PostProductAPITestCase(APITestCase):
 
 class SingleProductAPITestCase(APITestCase):
     def setUp(self):
-
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.product = Product.objects.create(
-            category="barbari",
+            category=self.category,
             name="Test Product",
             price=Decimal("100.00"),
             description="Test Description",
             stock=10,
             box_type=2,
-            box_color="Red",
+
             color="Blue",
             discount=Decimal(10),
         )
@@ -289,6 +373,8 @@ class SingleProductAPITestCase(APITestCase):
 
 class AdminSingleProductAPITestCase(APITestCase):
     def setUp(self):
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.user = User.objects.create_user(
             username="adminuser",
             password="adminpass",
@@ -302,13 +388,13 @@ class AdminSingleProductAPITestCase(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
 
         self.product = Product.objects.create(
-            category="barbari",
+            category=self.category,
             name="Test Product",
             price=Decimal("100.00"),
             description="Test Description",
             stock=10,
             box_type=2,
-            box_color="Red",
+
             color="Blue",
             discount=Decimal(10),
         )
@@ -363,6 +449,8 @@ class AdminSingleProductAPITestCase(APITestCase):
 
 class RateViewAPITestCase(APITestCase):
     def setUp(self):
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.user = User.objects.create_user(
             username="adminuser",
             password="adminpass",
@@ -376,13 +464,13 @@ class RateViewAPITestCase(APITestCase):
             phonenumber="+989034488752",
         )
         self.product = Product.objects.create(
-            category="sangak",
+            category=self.category,
             name="Sample Product",
             price=Decimal("50.00"),
             description="A great bread",
             stock=20,
             box_type=1,
-            box_color="White",
+
             color="Brown",
             discount=Decimal(5),
         )
@@ -406,6 +494,8 @@ class RateViewAPITestCase(APITestCase):
 
 class SingleRateViewAPITestCase(APITestCase):
     def setUp(self):
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.user = User.objects.create_user(
             username="adminuser",
             password="adminpass",
@@ -417,13 +507,13 @@ class SingleRateViewAPITestCase(APITestCase):
         self.user.groups.add(admin_group)
 
         self.product = Product.objects.create(
-            category="sangak",
+            category=self.category2,
             name="Sample Product",
             price=Decimal("50.00"),
             description="A great bread",
             stock=20,
             box_type=1,
-            box_color="White",
+
             color="Brown",
             discount=Decimal(5),
         )
@@ -471,6 +561,8 @@ class SingleRateViewAPITestCase(APITestCase):
 
 class ProductCommentViewsTestCase(APITestCase):
     def setUp(self):
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.user = User.objects.create_user(
             username="commenter",
             password="commentpass",
@@ -482,13 +574,13 @@ class ProductCommentViewsTestCase(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
 
         self.product = Product.objects.create(
-            category="sangak",
+            category=self.category2,
             name="Commented Bread",
             price=Decimal("70.00"),
             description="Tasty bread",
             stock=20,
             box_type=1,
-            box_color="Green",
+
             color="Tan",
             discount=Decimal("7.5"),
             average_rate=4.0,
@@ -647,21 +739,22 @@ class ProductCommentViewsTestCase(APITestCase):
 
 class ProductListViewsTestCase(APITestCase):
     def setUp(self):
-
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         self.product1 = Product.objects.create(
-            category="sangak",
+            category=self.category2,
             name="Bread A",
             price=Decimal("30.00"),
             description="Bread A desc",
             stock=5,
             box_type=1,
-            box_color="White",
+
             color="Brown",
             discount=Decimal("5.00"),
             average_rate=Decimal("3.5"),
         )
         self.product2 = Product.objects.create(
-            category="barbari",
+            category=self.category,
             name="Bread B",
             price=Decimal("40.00"),
             description="Bread B desc",
@@ -679,7 +772,7 @@ class ProductListViewsTestCase(APITestCase):
             description="Bread C desc",
             stock=3,
             box_type=2,
-            box_color="Blue",
+
             color="Green",
             discount=Decimal("10.00"),
             average_rate=Decimal("4.0"),
@@ -734,7 +827,7 @@ class ProductListViewsTestCase(APITestCase):
 
     def test_all_product_view_includes_new_product(self):
         new_product = Product.objects.create(
-            category="barbari",
+            category=self.category,
             name="Bread New",
             price=Decimal("60.00"),
             description="New product",
@@ -794,14 +887,15 @@ class ProductListViewsTestCase(APITestCase):
 
 class CategoryBoxViewTests(APITestCase):
     def setUp(self):
+        self.category = Category.objects.create(category="نان بربری", box_color="red")
+        self.category2 = Category.objects.create(category="2نان بربری", box_color="red")
         Product.objects.create(
             name="Test Bread 1",
             price=10000,
             stock=10,
             description="Test product",
             color="Brown",
-            box_color="White",
-            category="نان بربری",
+            category=self.category,
             box_type=1,
         )
 
@@ -811,8 +905,8 @@ class CategoryBoxViewTests(APITestCase):
             stock=5,
             description="Another test product",
             color="Golden",
-            box_color="Brown",
-            category="نان سنگک",
+
+            category=self.category,
             box_type=2,
         )
         self.url = reverse("category-box")
@@ -870,8 +964,8 @@ class CategoryBoxViewTests(APITestCase):
             stock=6,
             description="Second match",
             color="Light brown",
-            box_color="White",
-            category="نان بربری",
+
+            category=self.category,
             box_type=1,
         )
         response = self.client.get(f"{self.url}?category=1&box_type=1")

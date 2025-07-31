@@ -22,12 +22,9 @@ User = get_user_model()
 
 class CartView(APIView):
     permission_classes = [IsAuthenticated]
-    def get(self, request):
-        user = request.user
+
+    def calculate_cart_totals(self, user):
         cart_items = CartItem.objects.filter(user=user)
-        serializer = SummerizedCartSerializer(
-            cart_items, many=True, context={"request": request}
-        )
         total_price = 0
         total_discount = 0
 
@@ -40,27 +37,47 @@ class CartView(APIView):
             total_discount += (price * discount / 100) * quantity 
 
         total_actual_price = total_price - total_discount
-        if total_actual_price<0:
-            total_actual_price=0
+        if total_actual_price < 0:
+            total_actual_price = 0
 
         shipping_fee = -1
         delivery_cart = DeliveryCart.objects.filter(user=user).last()
-        if (delivery_cart and delivery_cart.delivery.delivery_date >= timezone.now().date() and 
-                delivery_cart.delivery.current_fill<delivery_cart.delivery.max_orders):
+        if (
+            delivery_cart and
+            delivery_cart.delivery.delivery_date >= timezone.now().date() and
+            delivery_cart.delivery.current_fill < delivery_cart.delivery.max_orders
+        ):
             shipping_fee = delivery_cart.delivery.shipping_fee or 0
 
-        counts= CartItem.objects.filter(user=user).count()
+        counts = CartItem.objects.filter(user=user).count()
+
+        return {
+            "cart_items": cart_items,
+            "total_discount": total_discount,
+            "total_actual_price": total_actual_price,
+            "shipping_fee": shipping_fee,
+            "total_actual_price_with_shipp": total_actual_price + shipping_fee,
+            "counts": counts,
+        }
+
+    def get(self, request):
+        user = request.user
+        totals = self.calculate_cart_totals(user)
+
+        serializer = SummerizedCartSerializer(
+            totals["cart_items"], many=True, context={"request": request}
+        )
+
         return Response(
             {
                 "cart_items": serializer.data,
-                "total_discount": total_discount,
-                "total_actual_price": total_actual_price,
-                "shipping_fee":shipping_fee,
-                "total_actual_price_with_shipp":total_actual_price+shipping_fee,
-                "counts":counts,
+                "total_discount": totals["total_discount"],
+                "total_actual_price": totals["total_actual_price"],
+                "shipping_fee": totals["shipping_fee"],
+                "total_actual_price_with_shipp": totals["total_actual_price_with_shipp"],
+                "counts": totals["counts"],
             }
         )
-
 
 class SingleCartView(APIView):
     serializer_class = CRUDCartSerializer
@@ -177,45 +194,36 @@ class DiscountedCartView(APIView):
             ),
         ]
     )
-    def get(self, request):
-        user = request.user
-        code = request.query_params.get("text")
+    def get_discount(self, user, code):
         if not code:
-            return Response({"error": "Enter a Discount Code"}, status=400)
+            return {"error": "Enter a Discount Code"}, 400
 
-        cart = DeliveryCart.objects.filter(user=user).last()
         discount = DiscountCart.objects.filter(user=user, text=code).first()
         if not discount:
-            return Response({"error": "This discount cart does not exist."}, status=404)
+            return {"error": "This discount cart does not exist."}, 404
 
         if discount.expired_time and discount.expired_time < timezone.now():
-            return Response({"error": "Your discount cart is expired."}, status=400)
+            return {"error": "Your discount cart is expired."}, 400
 
         if discount.max_use <= 0:
-            return Response(
-                {"error": "This discount cart has been used too many times."},
-                status=400,
-            )
+            return {"error": "This discount cart has been used too many times."}, 400
 
         if discount.first_time and Order.objects.filter(user=user).exists():
-            return Response(
-                {"error": "This discount is only for your first order."}, status=400
-            )
+            return {"error": "This discount is only for your first order."}, 400
 
+        return discount, None
+
+    def calculate_prices(self, user, discount):
         cart_items = CartItem.objects.filter(user=user)
         if not cart_items.exists():
-            return Response({"error": "Your cart is empty."}, status=400)
+            return {"error": "Your cart is empty."}, 400, None
 
         if discount.product:
             product_ids = cart_items.values_list("product_id", flat=True)
             if discount.product.id not in product_ids:
-                return Response(
-                    {"error": "This discount is not for your products."}, status=400
-                )
+                return {"error": "This discount is not for your products."}, 400, None
             if discount.product.discount > 10:
-                return Response(
-                    {"error": "This product already has a discount."}, status=400
-                )
+                return {"error": "This product already has a discount."}, 400, None
 
         total_price = sum(item.product.price * item.quantity for item in cart_items)
         total_discount = sum(
@@ -225,9 +233,7 @@ class DiscountedCartView(APIView):
         total_actual = total_price - total_discount
 
         if total_actual < discount.payment_without_discount:
-            return Response(
-                {"error": "This discount is not valid for your payment."}, status=400
-            )
+            return {"error": "This discount is not valid for your payment."}, 400, None
 
         if 0 < discount.max_discount < total_actual:
             discount_amount = discount.max_discount
@@ -235,6 +241,30 @@ class DiscountedCartView(APIView):
             discount_amount = total_actual * discount.percentage / 100
 
         final_price = max(0, total_actual - discount_amount)
+
+        return None, None, {
+            "total_discount": total_discount,
+            "final_price": final_price,
+            "cart": DeliveryCart.objects.filter(user=user).last(),
+            "discount_amount": discount_amount,
+        }
+
+    def get(self, request):
+        user = request.user
+        code = request.query_params.get("text")
+
+        discount, error_status = self.get_discount(user, code)
+        if error_status:
+            return Response(discount, status=error_status)
+
+        error, error_status, prices = self.calculate_prices(user, discount)
+        if error_status:
+            return Response(error, status=error_status)
+
+        cart = prices["cart"]
+        discount_amount = prices["discount_amount"]
+        total_discount = prices["total_discount"]
+        final_price = prices["final_price"]
 
         shipping_fee = 0
         if (

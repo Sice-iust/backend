@@ -32,77 +32,7 @@ from users.ratetimes import *
 
 from django.shortcuts import redirect
 
-class MyDiscountView(APIView):
-    serializer_class = DiscountCartSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        now = timezone.now()
-        two_days_later = now + timedelta(days=2)
-        expired_discounts = DiscountCart.objects.filter(user=user, expired_time__lt=now)
-        expiring_soon = DiscountCart.objects.filter(
-            user=user, expired_time__gte=now, expired_time__lte=two_days_later
-        )
-        active_discounts = DiscountCart.objects.filter(
-            user=user, expired_time__gt=two_days_later
-        )
-
-        return Response(
-            {
-                "expired": DiscountCartSerializer(expired_discounts, many=True).data,
-                "expiring_soon": DiscountCartSerializer(expiring_soon, many=True).data,
-                "active": DiscountCartSerializer(
-                    active_discounts, many=True
-                ).data,
-            }
-        )
-
-
-class AdminDiscountView(APIView):
-    serializer_class = DiscountCartSerializer
-
-    permission_classes = [IsAuthenticated, IsAdminGroupUser]
-
-    def get(self, request):
-        discounts = DiscountCart.objects.all()
-
-        serializer = self.serializer_class(discounts, many=True)
-
-        return Response({"discounts": serializer.data})
-
-    def post(self,request):
-        admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
-        serializer=self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response("you make a discount")
-        return Response(serializer.errors, status=400)
-
-
-class SingleDiscountCartView(APIView):
-    serializer_class = DiscountCartSerializer
-    permission_classes = [IsAuthenticated, IsAdminGroupUser]
-    def put(self,request,id):
-        discount = get_object_or_404(DiscountCart, id=id)
-        serializer = self.serializer_class(discount, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {"message": "Discount updated successfully", "data": serializer.data},
-                status=200,
-            )
-        return Response(serializer.errors, status=400)
-
-    def delete(self, request, id):
-        discount = get_object_or_404(DiscountCart, id=id)
-        discount.delete()
-        return Response({"message": "Discount deleted successfully"}, status=200)
-
 from django.http import HttpResponseRedirect
-
 
 class SubmitOrderView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
@@ -520,3 +450,5 @@ class AdminOrderInvoiceView(APIView):
                 "items": serializer.data,
             }
         )
+
+
