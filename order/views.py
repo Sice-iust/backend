@@ -155,7 +155,7 @@ class SubmitOrderView(RateTimeBaseView, APIView):
                     location=location,
                     user=user,
                     delivery=delivery,
-                    discription=data["discription"],
+                    description=data["description"],
                     total_price=data["total_price"],
                     profit=data["profit"],
                     status=1,

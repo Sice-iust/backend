@@ -62,7 +62,7 @@ class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     delivery = models.ForeignKey(DeliverySlots,on_delete=models.PROTECT)
     created_at = models.DateTimeField(default=timezone.now)
-    discription = models.TextField(blank=True)
+    description = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     profit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.SmallIntegerField(default=0, db_index=True)
