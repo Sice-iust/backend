@@ -14,8 +14,8 @@ from rest_framework import serializers
 from product.serializers import *
 
 User = get_user_model()
-from django.test import TestCase
-from rest_framework.test import APIRequestFactory
+from django.test import TestCase,RequestFactory
+from rest_framework.test import APIRequestFactory,force_authenticate
 from .models import *
 from .serializers import *
 from .views import *
@@ -59,7 +59,7 @@ class SingleProductCommentsViewTest(TestCase):
     def test_product_not_found(self):
         request = self.factory.get("/fake-url/")
         force_authenticate(request, user=self.user)
-        response = self.view(request, id=9999)  # invalid ID
+        response = self.view(request, id=9999) 
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 

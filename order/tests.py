@@ -4,6 +4,7 @@ from users.models import Location
 from product.models import Category, Product
 from cart.models import CartItem, DeliveryCart
 from order.models import *
+from order.views import *
 from order.serializers import (
     UserSerializer,
     UserDiscountSerializer,
@@ -26,9 +27,10 @@ import datetime
 import pytz
 from django.utils import timezone
 from decimal import Decimal
-from datetime import time, timedelta
+from datetime import time, timedelta,datetime
 from order.filters import OrderFilter
-
+from unittest.mock import MagicMock, patch
+from product.models import *
 User = get_user_model()
 
 
@@ -126,7 +128,7 @@ class SerializerTestCase(TestCase):
         self.assertTrue(serializer.is_valid())
 
     def test_finalize_order_serializer_valid(self):
-        # We mock the request and cart_info to simulate cart info presence
+
         request = self.factory.post("/fake-url/")
         request.user = self.user
         serializer_context = {"request": request}
@@ -135,14 +137,14 @@ class SerializerTestCase(TestCase):
             "location_id": self.location.id,
             "deliver_time": 1,
             "description": "",
-            "total_price": "0",  # Will be overwritten
-            "profit": "0",  # Will be overwritten
-            "total_payment": "0",  # Will be overwritten
+            "total_price": "0",
+            "profit": "0",
+            "total_payment": "0",
             "reciver": "Ali",
             "reciver_phone": "09121112222",
         }
 
-        # Patch cart_info function to return sample cart info
+
         from order import serializers as order_serializers
 
         def mock_cart_info(req):
@@ -286,11 +288,11 @@ class OrderModelsTestCase(TestCase):
             delivery=self.delivery_slot,
             total_price=Decimal("200.00"),
             profit=Decimal("20.00"),
-            status=4,  
+            status=4,
             reciver="Ali",
             reciver_phone="09121112222",
         )
-        
+
         self.assertIsNotNone(order.delivered_at)
         self.assertIn(str(self.user.phonenumber), str(order))
         order.status = 1
@@ -335,7 +337,7 @@ class OrderModelsTestCase(TestCase):
 
 class OrderFilterTestCase(TestCase):
     def setUp(self):
-        # ایجاد کاربر، دسته‌بندی، محصول، محل و زمان تحویل
+
         self.user = User.objects.create_user(
             username="testuser",
             phonenumber="+989123456789",
@@ -448,3 +450,124 @@ class OrderFilterTestCase(TestCase):
         filtered = OrderFilter(data, queryset=Order.objects.all())
         self.assertIn(self.order1, filtered.qs)
         self.assertNotIn(self.order2, filtered.qs)
+
+
+class GetReceiverInfoTest(TestCase):
+    def test_defaults_to_user(self):
+        user = MagicMock(username="fati", phonenumber="+989123456789")
+        data = {"reciver": "string", "reciver_phone": "string"}
+        view = SubmitOrderView()
+        name, phone = view._get_receiver_info(user, data)
+        self.assertEqual(name, "fati")
+        self.assertEqual(phone, "+989123456789")
+
+    def test_uses_custom_values(self):
+        user = MagicMock(username="fati", phonenumber="+989123456789")
+        data = {"reciver": "Ali", "reciver_phone": "+989111111111"}
+        view = SubmitOrderView()
+        name, phone = view._get_receiver_info(user, data)
+        self.assertEqual(name, "Ali")
+        self.assertEqual(phone, "+989111111111")
+
+
+class DeliverySlotTest(TestCase):
+    def test_slot_is_full(self):
+        delivery = MagicMock(current_fill=5, max_orders=5)
+        view = SubmitOrderView()
+        self.assertTrue(view._is_delivery_slot_full(delivery))
+
+    def test_slot_has_space(self):
+        delivery = MagicMock(current_fill=2, max_orders=5)
+        view = SubmitOrderView()
+        self.assertFalse(view._is_delivery_slot_full(delivery))
+
+class DiscountFetchTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="fati", phonenumber="+989123456789", password="pass",email="fari@gmail.com"
+        )
+        self.category = Category.objects.create(category="Gadgets", box_color="Cyan")
+        self.product = Product.objects.create(
+            name="Bluetooth Speaker", price=49.99, category=self.category
+        )
+        self.discount = DiscountCart.objects.create(
+            user=self.user,
+            text="SAVE20",
+            percentage=20,
+            max_discount=10000.00,
+            max_use=5,
+            first_time=False,
+            expired_time=datetime.now() + timedelta(days=5),
+            product=self.product,
+            payment_without_discount=0,
+        )
+
+    def test_valid_discount(self):
+        view = SubmitOrderView()
+        result = view._get_discount(" SAVE20 ")
+        self.assertEqual(result, self.discount)
+
+    def test_blank_discount(self):
+        view = SubmitOrderView()
+        result = view._get_discount("   ")
+        self.assertIsNone(result)
+
+
+class CheckStockTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="fati", phonenumber="+989123456789", password="pass",email="fari@gmail.com"
+        )
+        self.product = Product.objects.create(name="Apple", stock=10, price=5000)
+        self.cart_item = CartItem.objects.create(
+            user=self.user, product=self.product, quantity=3
+        )
+
+    def test_has_sufficient_stock(self):
+        view = SubmitOrderView()
+        result = view._check_stock(CartItem.objects.filter(user=self.user))
+        self.assertIsNone(result)
+
+    def test_insufficient_stock(self):
+        self.cart_item.quantity = 15
+        self.cart_item.save()
+        view = SubmitOrderView()
+        result = view._check_stock(CartItem.objects.filter(user=self.user))
+        self.assertEqual(result, "Not enough stock for Apple.")
+
+from datetime import date
+
+
+class LocationDeliveryTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="fati",
+            phonenumber="+989123456789",
+            password="pass",
+            email="fari@gmail.com",
+        )
+        self.location = Location.objects.create(
+            user=self.user, name="Home", address="Main St"
+        )
+        self.delivery = DeliverySlots.objects.create(
+            start_time="10:00",
+            end_time="12:00",
+            delivery_date=date.today(), 
+            current_fill=0,
+            max_orders=5,
+            shipping_fee=30000.00,
+        )
+
+    def test_valid_ids(self):
+        view = SubmitOrderView()
+        data = {"location_id": self.location.id, "deliver_time": self.delivery.id}
+        loc, delv = view._get_location_and_delivery(data)
+        self.assertEqual(loc, self.location)
+        self.assertEqual(delv, self.delivery)
+
+    def test_invalid_ids(self):
+        view = SubmitOrderView()
+        data = {"location_id": 999, "deliver_time": 999}
+        loc, delv = view._get_location_and_delivery(data)
+        self.assertIsNone(loc)
+        self.assertIsNone(delv)
