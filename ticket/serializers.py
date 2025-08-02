@@ -28,7 +28,7 @@ class TicketSerializer(serializers.ModelSerializer):
             "order_id",
             "admin_check",
             "is_close",
-            "admin_answer"
+            "admin_answer",
         ]
         read_only_fields = ["admin_check", "admin_answer"]
 
@@ -55,6 +55,7 @@ class AdminTicketSerializer(serializers.ModelSerializer):
             "is_close",
             "admin_answer",
         ]
+
 
 class PatchAdminSerializer(serializers.Serializer):
     admin_answer = serializers.CharField()
