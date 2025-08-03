@@ -12,7 +12,7 @@ from .serializers import (
 from django.shortcuts import get_object_or_404
 from order.models import Order
 from rest_framework.filters import OrderingFilter
-
+from users.permissions import IsAdminGroupUser
 
 class TicketView(APIView):
     permission_classes = [IsAuthenticated]
@@ -98,14 +98,10 @@ class PatchTicketView(APIView):
 
 
 class AdminTicketView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminGroupUser]
     serializer_class = AdminTicketSerializer
 
     def get(self, request):
-        if not request.user.groups.filter(name="Admin").exists():
-            return Response(
-                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
-            )
 
         tickets = Ticket.objects.all().order_by("-created_at")
         serializer = self.serializer_class(tickets, many=True)
@@ -113,15 +109,10 @@ class AdminTicketView(APIView):
 
 
 class AdminSingleTicketView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminGroupUser]
     serializer_class = PatchAdminSerializer
 
     def patch(self, request, id):
-        if not request.user.groups.filter(name="Admin").exists():
-            return Response(
-                {"message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN
-            )
-
         try:
             ticket = Ticket.objects.get(id=id)
         except Ticket.DoesNotExist:
@@ -146,3 +137,16 @@ class AdminSingleTicketView(APIView):
         return Response(
             {"message": "No valid fields to update"}, status=status.HTTP_400_BAD_REQUEST
         )
+
+from rest_framework import generics
+from .models import Ticket
+from .serializers import TicketSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+
+
+class TicketListView(generics.ListAPIView):
+    permission_classes = [IsAdminGroupUser]
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["priority", "category"] 

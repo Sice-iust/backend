@@ -8,4 +8,5 @@ urlpatterns = [
     path("user/tickets/single/check/<int:id>/", PatchTicketView.as_view()),
     path("nanzi/admin/tickets/", AdminTicketView.as_view()),
     path("nanzi/admin/tickets/single/<int:id>/", AdminSingleTicketView.as_view()),
+    path('nanzi/admin/ticket/list/',TicketListView.as_view()),
 ]
