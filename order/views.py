@@ -409,7 +409,7 @@ class AdminArchiveView(APIView):
 
 
 class ChangeStatusView(RateTimeBaseView, APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsAdminGroupUser]
     ratetime_class = [GetOnlyLimit]
     @extend_schema(
         parameters=[
@@ -440,7 +440,7 @@ class ChangeStatusView(RateTimeBaseView, APIView):
             return Response({"error": "status must be between 1 and 4."}, status=400)
 
         try:
-            order = Order.objects.get(id=id,user=user)
+            order = Order.objects.get(id=id)
         except Order.DoesNotExist:
             return Response({"error": "Order not found."}, status=404)
 
