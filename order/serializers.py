@@ -13,9 +13,13 @@ from rest_framework import serializers
 import pytz
 from django.utils import timezone
 from datetime import datetime
-
-
+from cart.serializers import SummerizedCartSerializer
 User = get_user_model()
+import jdatetime
+from rest_framework import serializers
+from .models import DeliverySlots
+
+PERSIAN_WEEKDAYS = ["شنبه", "یک‌شنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه"]
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -31,12 +35,6 @@ class UserDiscountSerializer(serializers.ModelSerializer):
         fields = ["phonenumber"]
 
 
-class DiscountOrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DiscountCart
-        fields = ["text"]
-
-
 class LocationSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     address = serializers.CharField()
@@ -44,13 +42,6 @@ class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = ["user", "address", "name", "home_floor", "home_unit", "home_plaque"]
-
-
-import jdatetime
-from rest_framework import serializers
-from .models import DeliverySlots
-
-PERSIAN_WEEKDAYS = ["شنبه", "یک‌شنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه"]
 
 
 class DeliverySlotSerializer(serializers.ModelSerializer):
@@ -72,10 +63,49 @@ class DeliverySlotsByDaySerializer(serializers.Serializer):
     slots = DeliverySlotSerializer(many=True)
 
 
+def cart_info(request):
+    user = request.user
+    cart_items = CartItem.objects.filter(user=user)
+    if not cart_items:
+        return {}
+    serializer = SummerizedCartSerializer(
+        cart_items, many=True, context={"request": request}
+    )
+    total_price = 0
+    total_discount = 0
+
+    for item in cart_items:
+        price = item.product.price or 0
+        discount = item.product.discount or 0
+        quantity = item.quantity
+
+        total_price += price * quantity
+        total_discount += (price * discount / 100) * quantity 
+
+    total_actual_price = total_price - total_discount
+    if total_actual_price<0:
+        total_actual_price=0
+
+    shipping_fee = -1
+    delivery_cart = DeliveryCart.objects.filter(user=user).last()
+    if (delivery_cart and delivery_cart.delivery.delivery_date >= timezone.now().date() and 
+            delivery_cart.delivery.current_fill<delivery_cart.delivery.max_orders):
+        shipping_fee = delivery_cart.delivery.shipping_fee or 0
+
+    counts= CartItem.objects.filter(user=user).count()
+    return {
+            "cart_items": serializer.data,
+            "total_discount": total_discount,
+            "total_actual_price": total_actual_price,
+            "shipping_fee":shipping_fee,
+            "total_actual_price_with_shipp":total_actual_price+shipping_fee,
+            "counts":counts,
+        }
+
 class FinalizeOrderSerializer(serializers.Serializer):
     location_id = serializers.IntegerField(write_only=True)
     deliver_time = serializers.IntegerField()
-    discription = serializers.CharField(required=False, allow_blank=True)
+    description = serializers.CharField(required=False, allow_blank=True)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     profit = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_payment = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -83,7 +113,18 @@ class FinalizeOrderSerializer(serializers.Serializer):
     payment_status = serializers.CharField(default="unpaid")
     reciver = serializers.CharField()
     reciver_phone = serializers.CharField()
-
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if request:
+            cart = cart_info(request)
+            if cart:
+                attrs['profit'] = cart['total_discount']
+                attrs['total_price'] = cart['total_actual_price_with_shipp']
+                attrs['total_payment'] = attrs['total_price'] - attrs['profit']
+                attrs['payment_status'] = 'unpaid'
+            else:
+                raise serializers.ValidationError("Cart is empty.")
+        return attrs
 
 class MyOrderSerializer(serializers.ModelSerializer):
     delivery = DeliverySlotSerializer()
@@ -98,7 +139,7 @@ class MyOrderSerializer(serializers.ModelSerializer):
             "total_price",
             "status",
             "profit",
-            "discription",
+            "description",
             "delivered_at",
             "reciver",
             "reciver_phone",
@@ -115,70 +156,6 @@ class MyOrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ["order", "product", "quantity", "product_discount"]
-
-
-class DiscountCartSerializer(serializers.ModelSerializer):
-    phonenumber = serializers.CharField(write_only=True)
-    product_name = serializers.CharField(write_only=True)
-    product = ProductDiscountSerializer(read_only=True)
-
-    class Meta:
-        model = DiscountCart
-        fields = [
-            "id",
-            "phonenumber",
-            "product_name",
-            "product",
-            "text",
-            "percentage",
-            "max_discount",
-            "max_use",
-            "first_time",
-            "expired_time",
-            "payment_without_discount",
-        ]
-        read_only_fields = ["text"]
-
-    def create(self, validated_data):
-        phone = validated_data.pop("phonenumber")
-        product_name = validated_data.pop("product_name")
-
-        try:
-            user = User.objects.get(phonenumber=phone)
-        except User.DoesNotExist:
-            raise serializers.ValidationError(
-                {"phonenumber": "No user with this phonenumber exists."}
-            )
-
-        try:
-            product = Product.objects.get(name=product_name)
-        except Product.DoesNotExist:
-            raise serializers.ValidationError(
-                {"product_name": "No product with this name exists."}
-            )
-
-        random_text = "".join(
-            secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10)
-        )
-
-        validated_data["user"] = user
-        validated_data["product"] = product
-        validated_data["text"] = random_text
-
-        return super().create(validated_data)
-
-    def to_representation(self, instance):
-
-        representation = super().to_representation(instance)
-
-        if "text" not in representation:
-
-            representation["text"] = "".join(
-                secrets.choice(string.ascii_uppercase + string.digits)
-                for _ in range(10)
-            )
-
-        return representation
 
 
 class OrderInvoiceSerializer(serializers.ModelSerializer):

@@ -32,7 +32,13 @@ class Ticket(models.Model):
     admin_answer = models.TextField(null=True, blank=True)
 
     admin_user = models.ForeignKey(
-        User, on_delete=models.PROTECT, related_name="admin_tickets",null=True,blank=True
+
+        User,
+        on_delete=models.PROTECT,
+        related_name="admin_tickets",
+        null=True,
+        blank=True,
+
     )
 
     def __str__(self):
