@@ -195,14 +195,14 @@ class SingleProductCommentsView(APIView):
 class CategoryView(APIView):
     serializer_class = ProductSerializer
 
-    category_map = {
-        1: "نان بربری",
-        2: "نان سنگک",
-        3: "نان تافتون",
-        4: "نان محلی",
-        5: "نان فانتزی",
-        6: "نان لواش",
-    }
+    # category_map = {
+    #     1: "نان بربری",
+    #     2: "نان سنگک",
+    #     3: "نان تافتون",
+    #     4: "نان محلی",
+    #     5: "نان فانتزی",
+    #     6: "نان لواش",
+    # }
 
     @extend_schema(
         parameters=[
@@ -225,11 +225,11 @@ class CategoryView(APIView):
         except ValueError:
             return Response({"error": "Category must be an integer"}, status=400)
 
-        category_name = self.category_map.get(category)
+        category_name = Category.objects.get(id=category)
         if not category_name:
             return Response({"error": "Invalid category number"}, status=400)
 
-        items = Product.objects.filter(category__category=category_name)
+        items = Product.objects.filter(category=category_name)
         serializer = self.serializer_class(
             items, many=True, context={"request": request}
         )
@@ -239,14 +239,14 @@ class CategoryView(APIView):
 class CategoryBoxView(APIView):
     serializer_class = ProductSerializer
 
-    category_map = {
-        1: "نان بربری",
-        2: "نان سنگک",
-        3: "نان تافتون",
-        4: "نان محلی",
-        5: "نان فانتزی",
-        6: "نان لواش",
-    }
+    # category_map = {
+    #     1: "نان بربری",
+    #     2: "نان سنگک",
+    #     3: "نان تافتون",
+    #     4: "نان محلی",
+    #     5: "نان فانتزی",
+    #     6: "نان لواش",
+    # }
 
     @extend_schema(
         parameters=[
@@ -283,7 +283,7 @@ class CategoryBoxView(APIView):
                 status=400,
             )
 
-        category_name = self.category_map.get(category)
+        category_name = Category.objects.get(id=category)
         if not category_name:
             return Response({"error": "Invalid category number."}, status=400)
 
@@ -293,7 +293,7 @@ class CategoryBoxView(APIView):
             )
 
         products = Product.objects.filter(
-            category__category=category_name, box_type=box
+            category=category_name, box_type=box
         )
         serializer = self.serializer_class(
             products, many=True, context={"request": request}
@@ -434,5 +434,5 @@ class CategoryModifyView(APIView):
 
         category.delete()
         return Response(
-            {"message": "Category deleted"}, status=status.HTTP_204_NO_CONTENT
+            {"message": "Category deleted"}, status=status.HTTP_200_OK
         )

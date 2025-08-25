@@ -29,78 +29,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics
 from users.permissions import IsAdminGroupUser
 from users.ratetimes import *
-
 from django.shortcuts import redirect
-
-class MyDiscountView(APIView):
-    serializer_class = DiscountCartSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        now = timezone.now()
-        two_days_later = now + timedelta(days=2)
-        expired_discounts = DiscountCart.objects.filter(user=user, expired_time__lt=now)
-        expiring_soon = DiscountCart.objects.filter(
-            user=user, expired_time__gte=now, expired_time__lte=two_days_later
-        )
-        active_discounts = DiscountCart.objects.filter(
-            user=user, expired_time__gt=two_days_later
-        )
-
-        return Response(
-            {
-                "expired": DiscountCartSerializer(expired_discounts, many=True).data,
-                "expiring_soon": DiscountCartSerializer(expiring_soon, many=True).data,
-                "active": DiscountCartSerializer(
-                    active_discounts, many=True
-                ).data,
-            }
-        )
-
-
-class AdminDiscountView(APIView):
-    serializer_class = DiscountCartSerializer
-
-    permission_classes = [IsAuthenticated, IsAdminGroupUser]
-
-    def get(self, request):
-        discounts = DiscountCart.objects.all()
-
-        serializer = self.serializer_class(discounts, many=True)
-
-        return Response({"discounts": serializer.data})
-
-    def post(self,request):
-        admin_group = Group.objects.get(name="Admin")
-        if not admin_group in request.user.groups.all():
-            return Response({"message": "Permission denied"}, status=403)
-        serializer=self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response("you make a discount")
-        return Response(serializer.errors, status=400)
-
-
-class SingleDiscountCartView(APIView):
-    serializer_class = DiscountCartSerializer
-    permission_classes = [IsAuthenticated, IsAdminGroupUser]
-    def put(self,request,id):
-        discount = get_object_or_404(DiscountCart, id=id)
-        serializer = self.serializer_class(discount, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {"message": "Discount updated successfully", "data": serializer.data},
-                status=200,
-            )
-        return Response(serializer.errors, status=400)
-
-    def delete(self, request, id):
-        discount = get_object_or_404(DiscountCart, id=id)
-        discount.delete()
-        return Response({"message": "Discount deleted successfully"}, status=200)
-
 from django.http import HttpResponseRedirect
 
 
@@ -119,73 +48,37 @@ class SubmitOrderView(RateTimeBaseView, APIView):
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
-        reciver=user.username
-        reciver_phone = user.phonenumber
-        if data.get("reciver") and data.get("reciver") != "string":
-            reciver = data.get("reciver")
-        if data.get("reciver_phone") and data.get("reciver_phone") != "string" :
-            reciver_phone = data.get("reciver_phone")
+        reciver, reciver_phone = self._get_receiver_info(user, data)
 
-        try:
-            location = Location.objects.get(id=data["location_id"])
-            delivery = DeliverySlots.objects.get(id=data["deliver_time"])
-        except (Location.DoesNotExist, DeliverySlots.DoesNotExist):
+        location, delivery = self._get_location_and_delivery(data)
+        if not location or not delivery:
             return Response({"error": "Invalid location or delivery slot."}, status=400)
 
-        if delivery.current_fill >= delivery.max_orders:
+        if self._is_delivery_slot_full(delivery):
             return Response({"error": "This delivery slot is full."}, status=400)
 
-        discount_text = data.get("discount_text", "").strip()
-        discount = (
-            DiscountCart.objects.filter(text=discount_text).first()
-            if discount_text
-            else None
-        )
+        discount = self._get_discount(data.get("discount_text", ""))
 
         cart_items = CartItem.objects.filter(user=user)
-        for item in cart_items:
-            if item.product.stock < item.quantity:
-                return Response(
-                    {"error": f"Not enough stock for {item.product.name}."}, status=400
-                )
+        stock_issue = self._check_stock(cart_items)
+        if stock_issue:
+            return Response({"error": stock_issue}, status=400)
 
         try:
-            with transaction.atomic():
-                order = Order.objects.create(
-                    location=location,
-                    user=user,
-                    delivery=delivery,
-                    description=data["description"],
-                    total_price=data["total_price"],
-                    profit=data["profit"],
-                    status=1,
-                    discount=discount,
-                    pay_status="pending",
-                    reciver=reciver,
-                    reciver_phone=reciver_phone,
-                )
-
-                for item in cart_items:
-                    OrderItem.objects.create(
-                        product=item.product,
-                        order=order,
-                        quantity=item.quantity,
-                        product_discount=item.product.discount,
-                    )
-                    item.product.stock -= item.quantity
-                    item.product.save()
-                    item.delete()
-
-                delivery.current_fill += 1
-                delivery.save()
+            order = self._create_order(
+                user,
+                data,
+                location,
+                delivery,
+                reciver,
+                reciver_phone,
+                discount,
+                cart_items,
+            )
         except Exception as e:
-            if "order" in locals():
-                order.delete()
             return Response({"error": str(e)}, status=500)
-        current_site = request.get_host()
-        scheme = 'https' if request.is_secure() else 'http'
-        callback_url = f"{request.scheme}://{request.get_host()}/api/payment/verify/?order_id={order.id}"
 
+        callback_url = self._build_callback_url(request, order.id)
         zarinpal = ZarinpalPayment(callback_url=callback_url)
         payment_response = zarinpal.request(
             user=user,
@@ -202,13 +95,95 @@ class SubmitOrderView(RateTimeBaseView, APIView):
             {"payment_url": payment_response.data["payment_url"]}, status=200
         )
 
-    def _has_sufficient_stock(self, item):
-        return item.product.stock >= item.quantity
+    def _get_receiver_info(self, user, data):
+        reciver = (
+            data.get("reciver")
+            if data.get("reciver") and data["reciver"] != "string"
+            else user.username
+        )
+        reciver_phone = (
+            data.get("reciver_phone")
+            if data.get("reciver_phone") and data["reciver_phone"] != "string"
+            else user.phonenumber
+        )
+        return reciver, reciver_phone
+
+    def _get_location_and_delivery(self, data):
+        try:
+            location = Location.objects.get(id=data["location_id"])
+            delivery = DeliverySlots.objects.get(id=data["deliver_time"])
+            return location, delivery
+        except (Location.DoesNotExist, DeliverySlots.DoesNotExist):
+            return None, None
+
+    def _is_delivery_slot_full(self, delivery):
+        return delivery.current_fill >= delivery.max_orders
+
+    def _get_discount(self, discount_text):
+        discount_text = discount_text.strip()
+        return (
+            DiscountCart.objects.filter(text=discount_text).first()
+            if discount_text
+            else None
+        )
+
+    def _check_stock(self, cart_items):
+        for item in cart_items:
+            if item.product.stock < item.quantity:
+                return f"Not enough stock for {item.product.name}."
+        return None
+
+    def _create_order(
+        self,
+        user,
+        data,
+        location,
+        delivery,
+        reciver,
+        reciver_phone,
+        discount,
+        cart_items,
+    ):
+        with transaction.atomic():
+            order = Order.objects.create(
+                location=location,
+                user=user,
+                delivery=delivery,
+                description=data["description"],
+                total_price=data["total_price"],
+                profit=data["profit"],
+                status=1,
+                discount=discount,
+                pay_status="pending",
+                reciver=reciver,
+                reciver_phone=reciver_phone,
+            )
+
+            for item in cart_items:
+                OrderItem.objects.create(
+                    product=item.product,
+                    order=order,
+                    quantity=item.quantity,
+                    product_discount=item.product.discount,
+                )
+                item.product.stock -= item.quantity
+                item.product.save()
+                item.delete()
+
+            delivery.current_fill += 1
+            delivery.save()
+            return order
+
+    def _build_callback_url(self, request, order_id):
+        scheme = "https" if request.is_secure() else "http"
+        return (
+            f"{scheme}://{request.get_host()}/api/payment/verify/?order_id={order_id}"
+        )
 
 
 class ZarinpalVerifyView(RateTimeBaseView, APIView):
     ratetime_class = [ThreePerMinuteLimit]
-    # permission_classes = [IsAuthenticated]
+
     def get(self, request):
         user=request.user
         authority = request.GET.get("Authority")
@@ -219,7 +194,7 @@ class ZarinpalVerifyView(RateTimeBaseView, APIView):
             transaction = ZarinpalTransaction.objects.get(authority=authority)
             order = Order.objects.get(id=order_id)
         except (ZarinpalTransaction.DoesNotExist, Order.DoesNotExist):
-            return Response({"message": "NOK"})
+            return redirect(f"https://nanzi-amber.vercel.app/")
         zarinpal = ZarinpalPayment(callback_url="")  
 
         result = zarinpal.verify(
@@ -228,17 +203,15 @@ class ZarinpalVerifyView(RateTimeBaseView, APIView):
             merchant_id=settings.MERCHANT_ID,
             amount=transaction.amount,
         )
-        # DeliverySlots.objects.filter(user=user).delete()
         if result.status_code == 200:
             order.pay_status = "paid"
-            # order.status = 2
             order.save()
-            return Response({"message":"OK"})
+            return redirect(f"https://nanzi-amber.vercel.app/ProfilePage")
         else:
             order.pay_status = "failed"
             order.status = 0
             order.save()
-            return Response({"message": "NOK"})
+            return redirect(f"https://nanzi-amber.vercel.app/")
 
 
 class OrderView(APIView):
@@ -435,7 +408,7 @@ class AdminArchiveView(APIView):
 
 
 class ChangeStatusView(RateTimeBaseView, APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated,IsAdminGroupUser]
     ratetime_class = [GetOnlyLimit]
     @extend_schema(
         parameters=[
@@ -466,7 +439,7 @@ class ChangeStatusView(RateTimeBaseView, APIView):
             return Response({"error": "status must be between 1 and 4."}, status=400)
 
         try:
-            order = Order.objects.get(id=id,user=user)
+            order = Order.objects.get(id=id)
         except Order.DoesNotExist:
             return Response({"error": "Order not found."}, status=404)
 

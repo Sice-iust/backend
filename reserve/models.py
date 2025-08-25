@@ -9,24 +9,41 @@
 # from users.models import Location
 # from order.models import DeliverySlots
 # User = get_user_model()
+# class ReserveDeliverySlots(models.Model):
+#     start_time = models.TimeField()
+#     end_time = models.TimeField()
+#     delivery_date = models.DateField()
+#     max_orders = models.IntegerField()
+#     current_fill = models.IntegerField()
+#     shipping_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-# class BreadReservation(models.Model):
+
+# class Reservation(models.Model):
 #     PERIOD_CHOICES = [
 #         ("weekly", "Weekly"),
 #         ("monthly", "Monthly"),
 #     ]
-
-#     user = models.ForeignKey(
-#         User, on_delete=models.CASCADE, related_name="bread_reservations"
+#     PAYMENT_STATUSES = [
+#         ("unpaid", "پرداخت نشده"),
+#         ("paid", "پرداخت شده"),
+#         ("pending", "در حال بررسی"),
+#         ("failed", "ناموفق"),
+#     ]
+#     pay_status = models.CharField(
+#         max_length=20, choices=PAYMENT_STATUSES, default="unpaid"
 #     )
-#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+#     # user = models.ForeignKey(
+#     #     User, on_delete=models.CASCADE, related_name="bread_reservations",db_index=True
+#     # )
+#     # product = models.ForeignKey(Product, on_delete=models.CASCADE)
 #     quantity = models.PositiveIntegerField(default=1)
 #     period = models.CharField(max_length=10, choices=PERIOD_CHOICES)
-#     delivery=models.ForeignKey(DeliverySlots,on_delete=models.PROTECT, null=True, blank=True)
+#     delivery = models.ForeignKey(
+#         ReserveDeliverySlots, on_delete=models.PROTECT, null=True, blank=True
+#     )
 #     active = models.BooleanField(default=True)
-#     auto_pay = models.BooleanField(default=False)
-#     location=models.ForeignKey(Location,on_delete=models.SET_NULL, null=True, blank=True)
-
+#     # location=models.ForeignKey(Location,on_delete=models.SET_NULL, null=True, blank=True)
+#     # date=models.DateTimeField(null=True,blank=True,auto_now=True)
 #     class Meta:
 #         unique_together = ("user", "period")
 

@@ -4,7 +4,9 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from datetime import timedelta
 from .models import User, Otp
-from rest_framework.test import APITestCase
+from .serializers import *
+from .models import *
+from django.test import TestCase,RequestFactory
 from rest_framework import status
 from django.urls import reverse
 from django.utils import timezone
@@ -18,6 +20,169 @@ from unittest.mock import patch
 
 
 User = get_user_model()
+
+class LocationModelTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="fati",
+            email="fati@example.com",
+            phonenumber="+989123456789",
+            password="securepass",
+        )
+        self.location = Location.objects.create(
+            user=self.user,
+            name="Home",
+            address="123 Main Street",
+            detail="Near park",
+            home_plaque=42,
+            home_unit=7,
+            home_floor=3,
+            is_choose=True,
+        )
+
+    def test_location_creation(self):
+        self.assertEqual(self.location.name, "Home")
+        self.assertTrue(self.location.is_choose)
+        self.assertEqual(str(self.location), "Home - 123 Main Street")
+
+
+class OtpModelTests(TestCase):
+    def setUp(self):
+        self.otp_entry = Otp.objects.create(phonenumber="+989111111111")
+
+    def test_generate_otp_sets_fields(self):
+        otp_value = self.otp_entry.generate_otp()
+        self.assertEqual(self.otp_entry.otp, otp_value)
+        self.assertTrue(self.otp_entry.otp_created_at <= timezone.now())
+
+    def test_otp_validity_within_timeframe(self):
+        self.otp_entry.generate_otp()
+        self.assertTrue(self.otp_entry.is_otp_valid())
+
+    def test_otp_expired(self):
+        self.otp_entry.otp_created_at = timezone.now() - timedelta(minutes=5)
+        self.otp_entry.save()
+        self.assertFalse(self.otp_entry.is_otp_valid())
+
+
+class CustomUserManagerTests(TestCase):
+    def test_create_user(self):
+        user = User.objects.create_user(
+            username="fati",
+            email="fati@example.com",
+            phonenumber="+989123456789",
+            password="securepass",
+        )
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.is_staff)
+        self.assertEqual(user.username, "fati")
+
+    def test_create_superuser(self):
+        superuser = User.objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            phonenumber="+989987654321",
+            password="adminpass",
+        )
+        self.assertTrue(superuser.is_superuser)
+        self.assertTrue(superuser.is_staff)
+        self.assertEqual(superuser.username, "admin")
+
+    def test_create_user_missing_fields(self):
+        with self.assertRaises(ValueError):
+            User.objects.create_user(username=None, email=None, phonenumber=None)
+
+
+class SendOTPSerializerTest(TestCase):
+    def test_valid_phonenumber(self):
+        data = {"phonenumber": "1234567890"}
+        serializer = SendOTPSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["phonenumber"], "1234567890")
+
+
+class OTPSerializersTest(TestCase):
+    def test_login_verify_valid(self):
+        data = {"phonenumber": "1234567890", "otp": "123456"}
+        serializer = LoginVerifyOTPSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
+
+    def test_signup_verify_valid(self):
+        data = {"phonenumber": "1234567890", "username": "fati", "otp": "654321"}
+        serializer = SignUPVerifyOTPSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
+
+    def test_signup_missing_fields(self):
+        serializer = SignUPVerifyOTPSerializer(
+            data={"phonenumber": "123", "otp": "999999"}
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("username", serializer.errors)
+
+
+class LogOutSerializerTest(TestCase):
+    def test_logout_valid(self):
+        serializer = LogOutSerializer(data={"refresh_token": "sample_refresh_token"})
+        self.assertTrue(serializer.is_valid())
+
+
+class ProfileSerializerTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.request = self.factory.get("/")
+        self.user = User.objects.create_user(
+            username="fati",
+            password="pass123",
+            email="fds@gmail.com",
+            phonenumber="+98765432345",
+        )
+
+    def test_default_profile_photo(self):
+        serializer = ProfileSerializer(
+            instance=self.user, context={"request": self.request}
+        )
+        self.assertIn("profile_photo", serializer.data)
+        self.assertTrue(serializer.data["profile_photo"].endswith("Default_pfp.jpg"))
+
+
+class UpdateProfileSerializerTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="fati",
+            password="pass123",
+            email="fds@gmail.com",
+            phonenumber="+98765432345",
+        )
+
+    def test_update_username(self):
+        serializer = UpdateProfileSerializer(
+            instance=self.user, data={"username": "newname"}
+        )
+        self.assertTrue(serializer.is_valid())
+        updated_user = serializer.save()
+        self.assertEqual(updated_user.username, "newname")
+
+
+class LocationSerializerTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="fati", password="pass123",email="fds@gmail.com",phonenumber="+98765432345")
+        self.location = Location.objects.create(
+            user=self.user,
+            address="123 Main St",
+            name="Home",
+            home_floor=2,
+            home_unit=2,
+            home_plaque=1,
+            is_choose=True,
+        )
+
+    def test_location_serialization(self):
+        serializer = LocationSerializer(instance=self.location)
+        data = serializer.data
+        self.assertEqual(data["name"], "Home")
+        self.assertEqual(data["home_floor"], 2)
+        self.assertEqual(data["is_choose"], True)
+
 
 class SendOTPViewTests(APITestCase):
     def setUp(self):
@@ -282,8 +447,8 @@ class LocationViewTest(APITestCase):
         Location.objects.create(
             user=self.user,
             name="Home",
-            reciver="Ali",
-            phonenumber="09123456789",
+            # reciver="Ali",
+            # phonenumber="09123456789",
             address="Tehran",
         )
         self.refresh = RefreshToken.for_user(self.user)
@@ -356,11 +521,11 @@ class NeshanLocationViewTest(APITestCase):
             phonenumber="+989123456789", username="testuser", password="testpass123",email="fatemeh@gmail.com"
         )
         self.client.force_authenticate(user=self.user)
-        self.url = reverse("neshan-location") 
+        self.url = reverse("neshan-location")
 
     @patch(
         "users.views.reverse_geocode"
-    ) 
+    )
     def test_valid_coordinates(self, mock_reverse_geocode):
         mock_reverse_geocode.return_value = {"address": "Tehran, Iran"}
         response = self.client.get(self.url, {"lat": 35.6892, "lng": 51.3890})
@@ -423,16 +588,16 @@ class ChooseLocationViewTest(APITestCase):
         self.location1 = Location.objects.create(
             user=self.user,
             name="Home",
-            reciver="Ali",
-            phonenumber="09123456789",
+            # reciver="Ali",
+            # phonenumber="09123456789",
             address="Tehran",
             is_choose=False,
         )
         self.location2 = Location.objects.create(
             user=self.user,
             name="Work",
-            reciver="Sara",
-            phonenumber="09129876543",
+            # reciver="Sara",
+            # phonenumber="09129876543",
             address="Karaj",
             is_choose=True,
         )
@@ -461,8 +626,8 @@ class ChooseLocationViewTest(APITestCase):
         other_location = Location.objects.create(
             user=other_user,
             name="Other",
-            reciver="Reza",
-            phonenumber="09120000000",
+            # reciver="Reza",
+            # phonenumber="09120000000",
             address="Shiraz",
             is_choose=False,
         )

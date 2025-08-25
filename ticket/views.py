@@ -13,24 +13,32 @@ from django.shortcuts import get_object_or_404
 from order.models import Order
 from rest_framework.filters import OrderingFilter
 from users.permissions import IsAdminGroupUser
-from users.ratetimes import *
-class TicketView(RateTimeBaseView, APIView):
+
+class TicketView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TicketSerializer
-    ratetime_class = [ThreePerMinuteLimit]
+
     def get(self, request):
         tickets = Ticket.objects.filter(user=request.user)
         serializer = self.serializer_class(tickets, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        order_id = request.data.get('order_id')
+        order_id = request.data.get("order_id")
         if not order_id:
-            return Response({"order_id": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"order_id": "This field is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         order = get_object_or_404(Order, id=order_id)
         if order.user != request.user:
-            return Response({"detail": "You do not have permission to create a ticket for this order."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {
+                    "detail": "You do not have permission to create a ticket for this order."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -39,10 +47,10 @@ class TicketView(RateTimeBaseView, APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SingleTicketView(RateTimeBaseView, APIView):
+class SingleTicketView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TicketSerializer
-   
+
     def put(self, request, id):
         ticket = get_object_or_404(Ticket, id=id, user=request.user)
         serializer = self.serializer_class(ticket, data=request.data, partial=True)
@@ -63,6 +71,7 @@ class SingleTicketView(RateTimeBaseView, APIView):
 class PatchTicketView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PatchUserSerializer
+
     def patch(self, request, id):
         try:
             ticket = Ticket.objects.get(id=id, user=request.user)
@@ -89,7 +98,7 @@ class PatchTicketView(APIView):
 
 
 class AdminTicketView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    permission_classes = [IsAdminGroupUser]
     serializer_class = AdminTicketSerializer
 
     def get(self, request):
@@ -100,7 +109,7 @@ class AdminTicketView(APIView):
 
 
 class AdminSingleTicketView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminGroupUser]
+    permission_classes = [IsAdminGroupUser]
     serializer_class = PatchAdminSerializer
 
     def patch(self, request, id):
@@ -128,3 +137,16 @@ class AdminSingleTicketView(APIView):
         return Response(
             {"message": "No valid fields to update"}, status=status.HTTP_400_BAD_REQUEST
         )
+
+from rest_framework import generics
+from .models import Ticket
+from .serializers import TicketSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+
+
+class TicketListView(generics.ListAPIView):
+    permission_classes = [IsAdminGroupUser]
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["priority", "category"] 

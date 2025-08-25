@@ -5,7 +5,7 @@ User = get_user_model()
 class Category(models.Model):
     category = models.CharField(max_length=255, db_index=True)
     box_color = models.TextField(default="red")
-    photo = models.ImageField(upload_to="category")
+    photo = models.ImageField(upload_to="category",null=True,blank=True)
 
 
 class Product(models.Model):
@@ -17,7 +17,7 @@ class Product(models.Model):
         (8, "Box of 8"),
     ]
     category = models.ForeignKey(
-        Category, on_delete=models.PROTECT, related_name="product_category",null=True,blank=True
+        Category, on_delete=models.CASCADE, related_name="product_category",null=True,blank=True
     )
     name = models.CharField(max_length=250, blank=False)
     price = models.DecimalField(max_digits=10, decimal_places=2)
