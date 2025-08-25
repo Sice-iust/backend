@@ -447,8 +447,8 @@ class LocationViewTest(APITestCase):
         Location.objects.create(
             user=self.user,
             name="Home",
-            reciver="Ali",
-            phonenumber="09123456789",
+            # reciver="Ali",
+            # phonenumber="09123456789",
             address="Tehran",
         )
         self.refresh = RefreshToken.for_user(self.user)
@@ -588,16 +588,16 @@ class ChooseLocationViewTest(APITestCase):
         self.location1 = Location.objects.create(
             user=self.user,
             name="Home",
-            reciver="Ali",
-            phonenumber="09123456789",
+            # reciver="Ali",
+            # phonenumber="09123456789",
             address="Tehran",
             is_choose=False,
         )
         self.location2 = Location.objects.create(
             user=self.user,
             name="Work",
-            reciver="Sara",
-            phonenumber="09129876543",
+            # reciver="Sara",
+            # phonenumber="09129876543",
             address="Karaj",
             is_choose=True,
         )
@@ -626,8 +626,8 @@ class ChooseLocationViewTest(APITestCase):
         other_location = Location.objects.create(
             user=other_user,
             name="Other",
-            reciver="Reza",
-            phonenumber="09120000000",
+            # reciver="Reza",
+            # phonenumber="09120000000",
             address="Shiraz",
             is_choose=False,
         )

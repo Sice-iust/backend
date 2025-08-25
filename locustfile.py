@@ -70,14 +70,10 @@ class WebsiteUser(HttpUser):
 
     @task(3)
     def view_category(self):
-        category = choice([1, 2, 3, 4, 5, 6])
-        self.client.get(f"/product/category/?category={category}")
+        # category = choice([1, 2, 3, 4, 5, 6])
+        category = choice([1, 2,])
 
-    @task(3)
-    def view_category_box(self):
-        category = choice([1, 2, 3, 4, 5, 6])
         self.client.get(f"/product/category/?category={category}")
-
     
     @task(2)
     def get_profile(self):
