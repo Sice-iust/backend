@@ -90,11 +90,24 @@ class WalletVerifyView(APIView):
         status = request.GET.get('Status')
 
         if not authority:
-            return redirect(HOME_PAGE)
+            return Response(
+                {
+                    "detail": "Bad query params.",
+                },
+                status=status.HTTP_400_BAD_REQUEST)
+        
         if not status:
-            return redirect(HOME_PAGE)
+            return Response(
+                {
+                    "detail": "Bad query params.",
+                },
+                status=status.HTTP_400_BAD_REQUEST)
         elif status != 'OK':
-            return redirect(HOME_PAGE)
+            return Response(
+                {
+                    "detail": "Bad query params.",
+                },
+                status=status.HTTP_400_BAD_REQUEST)
         else: 
             payment_class = ZarinpalPayment(callback_url=CALL_BACKURL)
             res = payment_class.verify(status,authority,settings.MERCHANT_ID,None)
@@ -108,11 +121,19 @@ class WalletVerifyView(APIView):
                         type=WalletTransaction.Type.Credit, value=tx.amount)
                     wallet = UserWallet.objects.get(user=tx.user)
                     wallet.apply_transaction(tx_wallet)
-                    return redirect(HOME_PAGE+"/ProfilePage")
+                    return Response({"message":"OK"})
                 else:
-                    return redirect(HOME_PAGE)
+                    return Response(
+                {
+                    "detail": "Transaction canceled or failed.",
+                },
+                status=400)
 
 
-        return redirect(HOME_PAGE)
+        return Response(
+                {
+                    "detail": f"{res.status_code}",
+                },
+                status=400)
 
 
