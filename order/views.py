@@ -33,7 +33,6 @@ from django.shortcuts import redirect
 from django.http import HttpResponseRedirect
 
 
-
 class SubmitOrderView(RateTimeBaseView, APIView):
     permission_classes = [IsAuthenticated]
     ratetime_class = [ThreePerMinuteLimit]
@@ -195,7 +194,7 @@ class ZarinpalVerifyView(RateTimeBaseView, APIView):
             transaction = ZarinpalTransaction.objects.get(authority=authority)
             order = Order.objects.get(id=order_id)
         except (ZarinpalTransaction.DoesNotExist, Order.DoesNotExist):
-            return Response({"message": "NOK"})
+            return redirect(f"https://nanzi-amber.vercel.app/")
         zarinpal = ZarinpalPayment(callback_url="")  
 
         result = zarinpal.verify(
@@ -207,12 +206,12 @@ class ZarinpalVerifyView(RateTimeBaseView, APIView):
         if result.status_code == 200:
             order.pay_status = "paid"
             order.save()
-            return Response({"message":"OK"})
+            return redirect(f"https://nanzi-amber.vercel.app/ProfilePage")
         else:
             order.pay_status = "failed"
             order.status = 0
             order.save()
-            return Response({"message": "NOK"})
+            return redirect(f"https://nanzi-amber.vercel.app/")
 
 
 class OrderView(APIView):
